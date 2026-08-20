@@ -1,0 +1,318 @@
+/** The right-hand column: the answer, and how it was arrived at. */
+
+import { deviceClass } from '../data/index.ts'
+import type { DeviceResult } from '../lib/fit/evaluate.ts'
+import type { ConfigResult, PoolUsage } from '../lib/fit/solve.ts'
+import { proposeTopology } from '../lib/topology/propose.ts'
+import type { Show } from '../lib/profiles/video.ts'
+import { plugTotals } from '../lib/profiles/video.ts'
+import { Chip } from './bits.tsx'
+
+export function Results({ results, show }: { results: DeviceResult[]; show: Show }) {
+  const totals = plugTotals(show)
+  const layerCount =
+    show.screens.reduce((n, s) => n + s.layers.length, 0) +
+    (show.layersOnAux ? show.auxes.reduce((n, a) => n + (a.layers?.length ?? 0), 0) : 0)
+
+  const fitting = results.filter(
+    (r) => r.best.verdict === 'fits' || r.best.verdict === 'fits-with-tradeoff',
+  )
+
+  const smt = results.filter((r) => deviceClass(r.device) === 'screen-management')
+  const vm = results.filter((r) => deviceClass(r.device) === 'vision-mixer')
+
+  return (
+    <>
+      <div className="summary-bar">
+        <div>
+          <span className="k">Screens</span>
+          <span className="v">{show.screens.length}</span>
+        </div>
+        <div>
+          <span className="k">Layers</span>
+          <span className="v">{layerCount}</span>
+        </div>
+        <div>
+          <span className="k">Input plugs</span>
+          <span className="v">{totals.in}</span>
+        </div>
+        <div>
+          <span className="k">Output plugs</span>
+          <span className="v">{totals.out}</span>
+        </div>
+        <div>
+          <span className="k">Devices that fit</span>
+          <span className="v">
+            {fitting.length}
+            <span className="faint"> / {results.length}</span>
+          </span>
+        </div>
+      </div>
+
+      <Section
+        title="Screen-management systems"
+        blurb="Build an arbitrary canvas across several outputs and edge-blend the joins."
+        results={smt}
+        show={show}
+      />
+      <Section
+        title="Vision mixers"
+        blurb="One raster per output, keyers rather than freely placed layers. A different tool for a different job — worth checking when the show is one screen and a couple of keys."
+        results={vm}
+        show={show}
+      />
+
+      <div className="disclaimer">
+        <h3>What this tool does and does not know</h3>
+        <p>
+          Every figure here is read from published vendor documentation and cited on the device
+          that uses it. <strong>None of it has been verified against hardware.</strong> Vendors
+          also revise spec sheets without notice, and several of the numbers involved are stated
+          as ranges or with conditions attached.
+        </p>
+        <p>
+          Treat a "fits" as a shortlist, not a purchase order — and read the notes on the device
+          before you commit a show to it. Where a figure could not be sourced it is marked
+          unverified rather than guessed at quietly.
+        </p>
+      </div>
+    </>
+  )
+}
+
+function Section({
+  title,
+  blurb,
+  results,
+  show,
+}: {
+  title: string
+  blurb: string
+  results: DeviceResult[]
+  show: Show
+}) {
+  if (results.length === 0) return null
+  const fits = results.filter(
+    (r) => r.best.verdict === 'fits' || r.best.verdict === 'fits-with-tradeoff',
+  ).length
+
+  return (
+    <>
+      <div className="section-head">
+        <h2>{title}</h2>
+        <p>
+          {fits} of {results.length} fit — {blurb}
+        </p>
+      </div>
+      {results.map((r) => (
+        <DeviceRow key={r.device.id} result={r} show={show} />
+      ))}
+    </>
+  )
+}
+
+function DeviceRow({ result, show }: { result: DeviceResult; show: Show }) {
+  const best = result.best
+  const fits = best.verdict === 'fits' || best.verdict === 'fits-with-tradeoff'
+
+  return (
+    <details className="result" open={false}>
+      <summary>
+        <Chip verdict={best.verdict} />
+        <span className="model">
+          {result.device.vendor} {result.device.model}
+          <small>
+            {best.config.label}
+            {result.configs.length > 1 && ` · ${result.configs.length} modes checked`}
+          </small>
+        </span>
+        <span className="headroom">
+          {fits
+            ? `${best.headroom.inputs} in / ${best.headroom.outputs} out spare`
+            : `${best.blockers.length} blocker${best.blockers.length === 1 ? '' : 's'}`}
+        </span>
+      </summary>
+      <div className="detail">
+        {best.blockers.length > 0 && (
+          <div>
+            <h4>Why not</h4>
+            <ul className="reasons bad">
+              {best.blockers.map((b, i) => (
+                <li key={i}>{b}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <PoolTable usage={best.pools.usage} />
+
+        {best.warnings.length > 0 && (
+          <div>
+            <h4>Worth knowing</h4>
+            <ul className="reasons warn">
+              {best.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {fits && <Topology result={best} show={show} />}
+
+        {result.configs.length > 1 && (
+          <div>
+            <h4>Other modes</h4>
+            <table>
+              <tbody>
+                {result.configs.slice(1).map((c) => (
+                  <tr key={c.config.id}>
+                    <td style={{ width: 1 }}>
+                      <Chip verdict={c.verdict} />
+                    </td>
+                    <td>{c.config.label}</td>
+                    <td className="soft">{c.blockers[0] ?? 'Fits.'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <Sources result={best} />
+      </div>
+    </details>
+  )
+}
+
+function PoolTable({ usage }: { usage: PoolUsage[] }) {
+  if (usage.length === 0) return null
+  return (
+    <div className="scroll-x">
+      <table>
+        <thead>
+          <tr>
+            <th>Resource</th>
+            <th>Counted on</th>
+            <th className="num">Used</th>
+            <th className="num">Available</th>
+            <th style={{ width: '22%' }}>Headroom</th>
+          </tr>
+        </thead>
+        <tbody>
+          {usage.map((u, i) => {
+            const pct = u.capacity > 0 ? Math.min(100, (u.used / u.capacity) * 100) : 0
+            const cls = !u.ok ? 'over' : pct > 85 ? 'tight' : ''
+            return (
+              <tr key={i}>
+                <td>
+                  {u.pool.label}
+                  <div className="faint">{u.pool.unit}</div>
+                </td>
+                <td className="soft">{u.scopeLabel}</td>
+                <td className="num">{fmt(u.used)}</td>
+                <td className="num">{fmt(u.capacity)}</td>
+                <td>
+                  <div className={`meter ${cls}`}>
+                    <span style={{ width: `${pct}%` }} />
+                  </div>
+                  {u.rescuedBy && (
+                    <div className="faint">
+                      {u.rescuedBy.label} would give {fmt(u.rescuedBy.capacity)}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function Topology({ result, show }: { result: ConfigResult; show: Show }) {
+  const topo = proposeTopology(result, show)
+  return (
+    <div>
+      <h4>Suggested wiring</h4>
+      <div className="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ width: '16%' }}>Plug</th>
+              <th style={{ width: '18%' }}>Connector</th>
+              <th>Signal</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topo.inputs.map((r, i) => (
+              <tr key={`i${i}`}>
+                <td className="mono">{r.plug}</td>
+                <td className="soft">{r.connector}</td>
+                <td>{r.signal}</td>
+                <td className="faint">{r.note ?? ''}</td>
+              </tr>
+            ))}
+            {topo.outputs.map((r, i) => (
+              <tr key={`o${i}`}>
+                <td className="mono">{r.plug}</td>
+                <td className="soft">{r.connector}</td>
+                <td>{r.signal}</td>
+                <td className="faint">{r.note ?? ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {(topo.spare.inputs.length > 0 || topo.spare.outputs.length > 0) && (
+        <p className="faint" style={{ marginTop: 6 }}>
+          Spare after patching: {topo.spare.inputs.length} inputs, {topo.spare.outputs.length}{' '}
+          outputs.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Sources({ result }: { result: ConfigResult }) {
+  const cites = [
+    ...result.device.provenance.citations,
+    ...result.config.pools.flatMap((p) => p.provenance?.citations ?? []),
+  ]
+  if (cites.length === 0) return null
+  const seen = new Set<string>()
+  const unique = cites.filter((c) => {
+    const k = `${c.source}|${c.claim}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+
+  return (
+    <details>
+      <summary className="faint" style={{ cursor: 'pointer' }}>
+        Where these numbers come from ({unique.length})
+      </summary>
+      <ul className="reasons faint" style={{ marginTop: 6 }}>
+        {unique.map((c, i) => (
+          <li key={i}>
+            {c.claim} —{' '}
+            {c.url ? (
+              <a href={c.url} target="_blank" rel="noreferrer noopener">
+                {c.source}
+              </a>
+            ) : (
+              c.source
+            )}
+            , read {c.read}.
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function fmt(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}

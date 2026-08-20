@@ -1,0 +1,29 @@
+# Cloudflare deployment for willmyshowfit.com.
+#
+# A static-assets-only Worker: no server code, same shape as the rest of the
+# fleet's browser tools. A show configuration is held in the tab and written to
+# a file the user picks — there is no backend to upload it to, and the absence
+# of `main` here is what makes that a property of the deployment rather than a
+# promise.
+#
+# Cloudflare runs the Vite build, so dist/ stays out of git. Build command:
+#
+#   npm ci && npm run build
+#
+# public/_headers is copied into dist/ by Vite and carries the CSP; the assets
+# runtime honours it. `npm run preview` does NOT apply it — use
+# `npm run serve:dist` to test the CSP for real.
+
+name = "willmyshowfit"
+compatibility_date = "2026-08-20"
+
+[assets]
+directory = "./dist"
+
+[[routes]]
+pattern = "willmyshowfit.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.willmyshowfit.com"
+custom_domain = true
