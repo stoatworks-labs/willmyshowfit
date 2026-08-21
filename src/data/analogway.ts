@@ -654,11 +654,15 @@ function aquilon(spec: AquilonSpec): VideoDevice {
       // family in the database that gets aux layers for free, and it is a real
       // reason to pick one for a show heavy on IMAG-with-graphics feeds.
       auxLayers: 'free',
-      mixers: { total: 64, pixelsPerSlice: 4096 },
+      // A LivePremier scaling engine spans four output links; a layer on a
+      // wider screen wraps onto a second layer link and costs again. This is
+      // what Analog Way's "depending on the screens setup" is hiding.
+      vpu: { scalingEngineOutputs: 4 },
     },
     caveats: [
       'Every LivePremier I/O card is field-swappable, so this stock plug mix is a starting point rather than a fixed property of the chassis. A custom loadout may well fit a show this one does not.',
-      'Layer capacity is stated "depending on the screens setup" — Analog Way allocates mixer resources per screen, so a show that spreads layers thinly across many screens can hit a wall before the headline number says it should.',
+      'Layer capacity is stated "depending on the screens setup", and this is what that means: a scaling engine spans four output links, so a layer on a screen wider than four outputs takes a second layer link and costs twice. A five-output blend is a cliff, not a gentle slope — going from four outputs to five doubles the layer cost of that screen.',
+      'The wide-screen rule is Analog Way\'s own (User Manual v6.0 §5.5.4) and was confirmed on an Aquilon C, where a six-output screen reported two mixers per slice. Optimized mode removes the boundary entirely and is NOT modelled — a chassis running it will take more than this says.',
     ],
     provenance: {
       confidence: 'documented',

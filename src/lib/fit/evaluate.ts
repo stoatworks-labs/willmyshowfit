@@ -50,14 +50,32 @@ export interface VideoRules {
    */
   edgeBlending?: boolean
   /**
-   * Mixer/slice modelling, where the device's real allocation is known rather
-   * than guessed. Only LivePremier has this today, and its slice rule is
-   * marked `inferred` — see the note on the pool.
+   * LivePremier's VPU model, and the one part of it that changes a verdict.
+   *
+   * A VPU is an 8x8 field of links — eight layer links in, eight output links
+   * out (User Manual v6.0 §5.5). A layer occupies a square sized by its
+   * capability, so a VPU holds 64 dual-link layers, 16 4K ones or 4 5K ones.
+   * None of that binds before the headline mixing-layer count does, so it is
+   * not modelled here.
+   *
+   * What *does* bind is the **scaling-engine boundary**: a layer spanning more
+   * than `scalingEngineOutputs` output links needs a second layer link and
+   * wraps (§5.5.4). A wide blended screen therefore costs more layer resource
+   * per layer than a small one — which is precisely what Analog Way means by
+   * quoting its layer counts "depending on the screens setup", and the reason
+   * a show can run out of layers while the headline number still looks fine.
+   *
+   * Confirmed on hardware: a six-output screen on an Aquilon C reported two
+   * mixers per slice, one covering outputs 1-4 and a second covering 5-6.
    */
-  mixers?: {
-    total: number
-    /** Canvas width one mixer slice covers. */
-    pixelsPerSlice: number
+  vpu?: {
+    /** Output links one scaling engine spans before a layer has to wrap. */
+    scalingEngineOutputs: number
+    /**
+     * True when Optimized mode is in use, which removes the boundary
+     * (§5.5.6). Never yet seen on hardware; here so the assumption is visible.
+     */
+    optimized?: boolean
   }
 }
 
@@ -69,7 +87,13 @@ export function evaluateConfig(
   show: Show,
 ): ConfigResult {
   const auxLayers = device.rules.auxLayers ?? 'from-pool'
-  const demands = buildDemands(show, { costing: device.rules.layerCosting, auxLayers })
+  const demands = buildDemands(show, {
+    costing: device.rules.layerCosting,
+    auxLayers,
+    ...(device.rules.vpu && !device.rules.vpu.optimized
+      ? { scalingEngineOutputs: device.rules.vpu.scalingEngineOutputs }
+      : {}),
+  })
 
   // ---- plugs
   const resources = resourcesOf(config)

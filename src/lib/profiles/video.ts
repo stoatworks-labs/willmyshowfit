@@ -203,6 +203,26 @@ export type AuxLayerRule = 'none' | 'free' | 'from-pool'
 export interface DemandRules {
   costing: LayerCosting
   auxLayers: AuxLayerRule
+  /**
+   * Output links one scaling engine covers before a layer must take a second
+   * layer link and wrap. Absent means the device has no such boundary.
+   */
+  scalingEngineOutputs?: number
+}
+
+/**
+ * How many times over a layer must be instantiated to cover a screen.
+ *
+ * On LivePremier a scaling engine spans four output links; a layer on a screen
+ * wider than that wraps onto another layer link and costs again (User Manual
+ * v6.0 §5.5.4, and observed on an Aquilon C where a six-output screen reported
+ * two mixers per slice). A five-output blend therefore costs twice what a
+ * four-output blend costs, per layer — a cliff, not a slope, and the reason a
+ * show can exhaust a device whose headline layer count looked ample.
+ */
+export function layerSpread(outputPlugs: number, scalingEngineOutputs?: number): number {
+  if (!scalingEngineOutputs || scalingEngineOutputs <= 0) return 1
+  return Math.max(1, Math.ceil(outputPlugs / scalingEngineOutputs))
 }
 
 export function buildDemands(show: Show, rules: DemandRules): VideoDemands {
@@ -261,6 +281,12 @@ export function buildDemands(show: Show, rules: DemandRules): VideoDemands {
       })
     }
 
+    const screenPlugs = screen.destinations.reduce(
+      (n, d) => n + d.count * (d.plugsPerSignal ?? 1),
+      0,
+    )
+    const spread = layerSpread(screenPlugs, rules.scalingEngineOutputs)
+
     for (const layer of screen.layers) {
       const costed = costLayer(layer, costing)
       if ('tooBig' in costed) {
@@ -271,9 +297,12 @@ export function buildDemands(show: Show, rules: DemandRules): VideoDemands {
       }
       pools.push({
         poolId: costing.poolId,
-        amount: costed.cost,
+        amount: costed.cost * spread,
         scopeKey: screen.id,
-        because: `${screen.name} / ${layer.name} (${costed.className}, ${layer.kind})`,
+        because:
+          spread > 1
+            ? `${screen.name} / ${layer.name} (${costed.className}, ${layer.kind}) — x${spread}, the screen spans ${screenPlugs} outputs`
+            : `${screen.name} / ${layer.name} (${costed.className}, ${layer.kind})`,
       })
     }
 

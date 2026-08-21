@@ -25,6 +25,14 @@ socket *and* a 12G-SDI socket carrying the same picture: that is one output, not
 two. Its inputs 1 and 2 are HDMI *or* 3G-SDI, pick one. Counting the sockets on
 the back panel overstates that chassis by a third.
 
+**The wide-screen layer penalty.** Analog Way quotes its layer counts
+"depending on the screens setup", and this is what that hides: a LivePremier
+scaling engine spans four output links, so a layer on a screen wider than four
+outputs takes a second layer link and costs twice. It is a cliff at five
+outputs, not a slope — going from a four-output blend to a five-output one
+doubles that screen's entire layer bill, which is how a show exhausts a chassis
+whose headline layer count looked ample.
+
 **Layer capacity in each vendor's own arithmetic.** Analog Way charges a 4K
 mixing layer twice what it charges a DL/2K one. Barco's ladder is 4K : DL : 2K =
 1 : 2 : 4. PixelHue budgets layers **per output card**, so an F8 advertising

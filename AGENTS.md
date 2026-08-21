@@ -105,7 +105,7 @@ thing standing between a show name and the DOM. It emits no scripts.
 
 ## Verified vs assumed
 
-**Verified:** the engine. 67 tests cover the signal maths against published
+**Verified:** the engine. 73 tests cover the signal maths against published
 timings, mirror/select collapsing, the matching (including the four-SDI-sources
 case a count gets wrong), dual-cable rate splitting, adapter selection, layer
 costing, all four pool scopes, the aux-layer rule per vendor, the vision-mixer
@@ -119,10 +119,16 @@ failure, and that it refuses to invent cards for chassis without a catalogue).
 - **PixelHue screens spanning two output cards** are charged to both. PixelHue
   does not publish what actually happens. Conservative — it can report "does not
   fit" for something an engineer would make work.
-- **Aquilon VPU mixer/slice modelling** exists in `VideoRules.mixers` but is not
-  yet used in a verdict. The live-read allocation data is real
-  (32 of 64 mixers, slices per screen); what drives slice count is assumed to be
-  canvas width and is *not* proven.
+- **The LivePremier scaling-engine boundary IS used in a verdict** now
+  (`VideoRules.vpu`). Four output links per engine; a layer on a wider screen
+  wraps and costs twice. That rule is the manual's (v6.0 §5.5.4) and was
+  confirmed on an Aquilon C where a six-output screen reported two mixers per
+  slice. **Optimized mode removes the boundary and is not modelled** — a chassis
+  running it takes more than this tool says.
+- **The rest of the VPU model is deliberately not modelled.** A VPU is an 8x8
+  link field holding 64 dual-link, 16 4K or 4 5K layers; none of that binds
+  before the headline mixing-layer count does, so modelling it would add
+  machinery without changing an answer.
 - **Barco E2 Gen 2's layer ladder** is the Gen 1 sheet's, inferred.
 - **Barco S3 standalone's "4 mixable"** is read as 4K layers, inferred.
 - **Roland V-600UHD layer count** is `unverified` — Roland publishes none.

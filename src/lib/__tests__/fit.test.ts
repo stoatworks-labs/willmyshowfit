@@ -521,3 +521,90 @@ describe('vision mixers are judged on shape, not just size', () => {
     expect(plugLines[0]).toMatch(/and 5 more/)
   })
 })
+
+// ------------------------------------------- LivePremier scaling engines
+
+/**
+ * Analog Way quotes its layer counts "depending on the screens setup". This is
+ * what that phrase is hiding: a scaling engine spans four output links, so a
+ * layer on a wider screen takes a second layer link and costs twice (User
+ * Manual v6.0 §5.5.4). It is a cliff at five outputs, not a slope.
+ */
+describe('the LivePremier wide-screen layer penalty', () => {
+  function blend(outputs: number, layers: number): Show {
+    return {
+      ...emptyShow(),
+      sources: [],
+      screens: [
+        screen({
+          canvas: { hActive: 1920 * outputs, vActive: 1080, refreshHz: 60 },
+          layers: Array.from({ length: layers }, (_, i) => ({
+            id: `l${i}`,
+            name: `Layer ${i + 1}`,
+            kind: 'mixing' as const,
+            format: { hActive: 3840, vActive: 2160, refreshHz: 60, bpc: 8 as const, sampling: 'rgb444' as const },
+          })),
+          destinations: [
+            {
+              id: 'd',
+              name: 'LED',
+              format: { hActive: 1920, vActive: 1080, refreshHz: 60, bpc: 8, sampling: 'rgb444' },
+              connector: 'hdmi',
+              count: outputs,
+            },
+          ],
+        }),
+      ],
+    }
+  }
+
+  const layersUsed = (deviceId: string, s: Show): number => {
+    const d = byId(deviceId)
+    const r = evaluateConfig(d, d.configs[0], s)
+    return r.pools.usage.find((u) => u.pool.id === 'layers')?.used ?? 0
+  }
+
+  it('charges a four-output screen once per layer', () => {
+    expect(layersUsed('aw-aquilon-rs4', blend(4, 3))).toBe(3)
+  })
+
+  it('doubles the cost at five outputs — the boundary is a cliff', () => {
+    expect(layersUsed('aw-aquilon-rs4', blend(5, 3))).toBe(6)
+    // Still doubled at eight; the third engine starts at nine.
+    expect(layersUsed('aw-aquilon-rs4', blend(8, 3))).toBe(6)
+    expect(layersUsed('aw-aquilon-rs4', blend(9, 3))).toBe(9)
+  })
+
+  it('turns a clean fit at four outputs into a trade-off at five', () => {
+    const d = byId('aw-aquilon-rs2') // 8x 4K mixing layers
+    expect(evaluateConfig(d, d.configs[0], blend(4, 8)).verdict).toBe('fits')
+
+    // One more output doubles the layer bill to 16, past the 8 mixing layers —
+    // but split-layer mode has 16, so it becomes a trade-off with a stated
+    // cost rather than a flat refusal. That distinction is the useful part.
+    const wide = evaluateConfig(d, d.configs[0], blend(5, 8))
+    expect(wide.verdict).toBe('fits-with-tradeoff')
+    expect(wide.warnings.join(' ')).toMatch(/split-layer mode/)
+    expect(wide.warnings.join(' ')).toMatch(/cannot seamlessly change source/)
+  })
+
+  it('refuses outright once even the split-layer allowance is gone', () => {
+    const d = byId('aw-aquilon-rs2')
+    const wide = evaluateConfig(d, d.configs[0], blend(5, 12))
+    expect(wide.verdict).toBe('does-not-fit')
+    expect(wide.blockers.join(' ')).toMatch(/Mixing layers/)
+  })
+
+  it('says in the contributor line why a layer cost double', () => {
+    const d = byId('aw-aquilon-rs4')
+    const r = evaluateConfig(d, d.configs[0], blend(6, 1))
+    const use = r.pools.usage.find((u) => u.pool.id === 'layers')!
+    expect(use.contributors[0].because).toMatch(/x2, the screen spans 6 outputs/)
+  })
+
+  it('does not apply the penalty to devices that have no such boundary', () => {
+    // Barco and PixelHue do not publish a scaling-engine boundary, so a wide
+    // screen costs them exactly what a narrow one does.
+    expect(layersUsed('barco-e2-gen2', blend(8, 4))).toBe(layersUsed('barco-e2-gen2', blend(2, 4)))
+  })
+})

@@ -233,7 +233,13 @@ export function proposeLoadout(device: VideoDevice, show: Show): LoadoutOutcome 
   const slots = device.slots!
 
   const auxLayers = device.rules.auxLayers ?? 'from-pool'
-  const demands = buildDemands(show, { costing: device.rules.layerCosting, auxLayers })
+  const demands = buildDemands(show, {
+    costing: device.rules.layerCosting,
+    auxLayers,
+    ...(device.rules.vpu && !device.rules.vpu.optimized
+      ? { scalingEngineOutputs: device.rules.vpu.scalingEngineOutputs }
+      : {}),
+  })
   const plugs = expandToPlugs(demands.ports)
 
   // The multiviewer plugs are part of the chassis, not of a card, so those
