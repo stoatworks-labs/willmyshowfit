@@ -1,8 +1,11 @@
 /** The right-hand column: the answer, and how it was arrived at. */
 
+import { useMemo } from 'react'
+
 import { deviceClass } from '../data/index.ts'
 import type { DeviceResult } from '../lib/fit/evaluate.ts'
 import type { ConfigResult, PoolUsage } from '../lib/fit/solve.ts'
+import { proposeLoadout, type LoadoutOutcome } from '../lib/fit/loadout.ts'
 import { proposeTopology } from '../lib/topology/propose.ts'
 import type { Show } from '../lib/profiles/video.ts'
 import { plugTotals } from '../lib/profiles/video.ts'
@@ -10,6 +13,17 @@ import { Chip } from './bits.tsx'
 
 export function Results({ results, show }: { results: DeviceResult[]; show: Show }) {
   const totals = plugTotals(show)
+
+  // Only searched for devices that missed — about 1.5 ms each, and only the
+  // chassis that publish a card catalogue are searched at all.
+  const loadouts = useMemo(() => {
+    const m = new Map<string, LoadoutOutcome>()
+    for (const r of results) {
+      if (r.best.verdict === 'fits') continue
+      m.set(r.device.id, proposeLoadout(r.device, show))
+    }
+    return m
+  }, [results, show])
   const layerCount =
     show.screens.reduce((n, s) => n + s.layers.length, 0) +
     (show.layersOnAux ? show.auxes.reduce((n, a) => n + (a.layers?.length ?? 0), 0) : 0)
@@ -54,12 +68,14 @@ export function Results({ results, show }: { results: DeviceResult[]; show: Show
         blurb="Build an arbitrary canvas across several outputs and edge-blend the joins."
         results={smt}
         show={show}
+        loadouts={loadouts}
       />
       <Section
         title="Vision mixers"
         blurb="One raster per output, keyers rather than freely placed layers. A different tool for a different job — worth checking when the show is one screen and a couple of keys."
         results={vm}
         show={show}
+        loadouts={loadouts}
       />
 
       <div className="disclaimer">
@@ -85,11 +101,13 @@ function Section({
   blurb,
   results,
   show,
+  loadouts,
 }: {
   title: string
   blurb: string
   results: DeviceResult[]
   show: Show
+  loadouts: Map<string, LoadoutOutcome>
 }) {
   if (results.length === 0) return null
   const fits = results.filter(
@@ -105,15 +123,24 @@ function Section({
         </p>
       </div>
       {results.map((r) => (
-        <DeviceRow key={r.device.id} result={r} show={show} />
+        <DeviceRow key={r.device.id} result={r} show={show} loadout={loadouts.get(r.device.id)} />
       ))}
     </>
   )
 }
 
-function DeviceRow({ result, show }: { result: DeviceResult; show: Show }) {
+function DeviceRow({
+  result,
+  show,
+  loadout,
+}: {
+  result: DeviceResult
+  show: Show
+  loadout?: LoadoutOutcome
+}) {
   const best = result.best
   const fits = best.verdict === 'fits' || best.verdict === 'fits-with-tradeoff'
+  const rescued = loadout?.kind === 'proposed'
 
   return (
     <details className="result" open={false}>
@@ -129,7 +156,9 @@ function DeviceRow({ result, show }: { result: DeviceResult; show: Show }) {
         <span className="headroom">
           {fits
             ? `${best.headroom.inputs} in / ${best.headroom.outputs} out spare`
-            : `${best.blockers.length} blocker${best.blockers.length === 1 ? '' : 's'}`}
+            : rescued
+              ? 'fits with different cards'
+              : `${best.blockers.length} blocker${best.blockers.length === 1 ? '' : 's'}`}
         </span>
       </summary>
       <div className="detail">
@@ -156,6 +185,8 @@ function DeviceRow({ result, show }: { result: DeviceResult; show: Show }) {
             </ul>
           </div>
         )}
+
+        {loadout && <Loadout outcome={loadout} show={show} />}
 
         {fits && <Topology result={best} show={show} />}
 
@@ -271,6 +302,77 @@ function Topology({ result, show }: { result: ConfigResult; show: Show }) {
           outputs.
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * What a different set of cards would do for a chassis that missed.
+ *
+ * A "does not fit" on a modular chassis is only half an answer — the question
+ * anyone specifying a build actually has is whether a different loadout takes
+ * it. Where the catalogue is not published, that is said outright rather than
+ * left as an empty space, because "no suggestion" and "cannot suggest" look
+ * identical otherwise.
+ */
+function Loadout({ outcome, show }: { outcome: LoadoutOutcome; show: Show }) {
+  if (outcome.kind === 'stock-already-fits') return null
+
+  if (outcome.kind === 'not-supported') {
+    return (
+      <div className="notice info">
+        <strong>No custom loadout to suggest.</strong> {outcome.reason}
+      </div>
+    )
+  }
+
+  if (outcome.kind === 'no-loadout-fits') {
+    return (
+      <div className="notice">
+        <strong>No card loadout fixes this.</strong> {outcome.reason}
+      </div>
+    )
+  }
+
+  const p = outcome.proposal
+  return (
+    <div>
+      <h4>It fits with different cards</h4>
+      <div className="notice info">
+        The stock loadout misses, but this chassis takes the show fitted as below —{' '}
+        {p.slotsUsed.input} of {p.slotsAvailable.input} input slots and {p.slotsUsed.output} of{' '}
+        {p.slotsAvailable.output} output slots. The cards and the slot counts are documented; this
+        arrangement of them is not a product, and slot-position rules are not modelled, so check it
+        against the vendor's own slot diagram before ordering.
+      </div>
+      <div className="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Slot</th>
+              <th>Card</th>
+              <th className="num">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {p.inputCards.map((c) => (
+              <tr key={`i-${c.card.id}`}>
+                <td className="soft">Input</td>
+                <td>{c.card.label}</td>
+                <td className="num">{c.count}</td>
+              </tr>
+            ))}
+            {p.outputCards.map((c) => (
+              <tr key={`o-${c.card.id}`}>
+                <td className="soft">Output</td>
+                <td>{c.card.label}</td>
+                <td className="num">{c.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Topology result={p.result} show={show} />
     </div>
   )
 }

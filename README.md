@@ -77,9 +77,35 @@ separately), Alta 4K (Zenith 100/200), LivePremier (Aquilon RS alpha, RS1–RS6)
 **Roland** — V-160HD, VR-400UHD, V-600UHD.
 **Blackmagic Design** — ATEM 1/2/4 M/E Constellation 4K.
 
-Card-based chassis are profiled against their stock loadout. A custom
-card-loadout solver is the next piece of work; the caveats say so where it
-matters.
+Card-based chassis are profiled against their stock loadout **and**, where the
+chassis misses, searched for a card loadout that would take the show — see
+below.
+
+## Custom card loadouts
+
+When a modular chassis does not fit as it ships, "does not fit" is only half an
+answer. The question anyone specifying a build actually has is whether a
+different set of cards would take it, so the tool searches for one and shows the
+smallest arrangement that does, with the wiring topology that follows from it.
+
+Loadouts are enumerated in increasing card count, so the first feasible one is
+minimal by construction; among equals, fewer distinct card types wins, because
+four identical cards are easier to order and swap on site than four different
+ones. The chosen loadout then goes through exactly the same evaluation as a
+stock profile — there is no second, looser notion of "fits".
+
+The search is capability-aware rather than a plug count. Asked for five 1080p60
+HDMI sources it specifies one 8-plug HDMI 1.4 card rather than two 4-plug
+HDMI 2.0 ones, because the cheaper card carries the format.
+
+**Only chassis that publish a card catalogue get this.** Barco's Event Master
+chassis carry slot counts but no per-card connector breakdown in the spec sheets
+this database is built from, so they are excluded and the page says why, rather
+than being filled in with plausible-looking inventions.
+
+Slot-position rules are not modelled. Some vendors require particular cards in
+particular slots, so a proposal is a starting point to check against the
+vendor's own slot diagram, not an order form.
 
 ## Import, export and reports
 

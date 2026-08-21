@@ -14,6 +14,7 @@ src/lib/model/signal.ts     pixel rates, SDI classes, DP link budgets
 src/lib/profiles/video.ts   what a show IS, and how it becomes demands
 src/lib/fit/solve.ts        port matching + pool checking
 src/lib/fit/evaluate.ts     one device, one verdict; then ranking
+src/lib/fit/loadout.ts      searching the card catalogue for a loadout that fits
 src/lib/topology/propose.ts a fit turned into a patch list
 src/lib/io/xml.ts           save/load
 src/lib/report/html.ts      the report, one generator for screen and file
@@ -80,11 +81,12 @@ thing standing between a show name and the DOM. It emits no scripts.
 
 ## Verified vs assumed
 
-**Verified:** the engine. 45 tests cover the signal maths against published
+**Verified:** the engine. 55 tests cover the signal maths against published
 timings, mirror/select collapsing, the matching (including the four-SDI-sources
 case a count gets wrong), dual-cable rate splitting, adapter selection, layer
 costing, all four pool scopes, the aux-layer rule per vendor, the vision-mixer
-shape check, and XML round-tripping.
+shape check, XML round-tripping, and the loadout search (minimality, slot limits, honest
+failure, and that it refuses to invent cards for chassis without a catalogue).
 
 **Assumed, and badged in the UI:**
 
@@ -128,9 +130,40 @@ one, the privacy claim in the README becomes false.
 Fleet conventions apply: see `~/.claude` memory for the deploy path, the
 push-before-deploy race, and the dirty-tree trap.
 
+## The loadout search
+
+`proposeLoadout` runs only for chassis that missed and that publish a card
+catalogue. ~1.5 ms each, ~14 ms for a whole pass, so it runs inline in the same
+memo as the evaluation rather than behind a button.
+
+**Input and output are solved independently.** They never compete for the same
+slot and a demand in one direction can never be met by a port in the other, so
+one search over ~27,000 combined loadouts becomes two over a few hundred each.
+`either` slots are handled by trying every split.
+
+Loadouts are enumerated in increasing card count, so the first feasible one is
+minimal by construction. Ties break on fewest distinct card types, then most
+spare plugs. Multiviewer plugs belong to the chassis, not a card, so those
+demands are excluded from card selection and the stock config's MVR ports are
+carried over — otherwise the search buys an output card to serve a multiviewer
+that already has its own plugs.
+
+Chassis-level pools (layers, canvas, connector maxima) carry over from the stock
+config, because they are properties of the box. PixelHue's per-output-card layer
+pool re-scopes itself for free, since its capacity is stated per card.
+
+**A generated loadout is always `inferred`, never `documented`**, and says in
+its own provenance note that it is not a product. Slot-position rules are not
+modelled.
+
+`whyNoLoadout()` returns a sentence rather than null for chassis that cannot be
+searched — "no suggestion" and "cannot suggest" look identical in a UI and mean
+very different things.
+
 ## Next
 
-1. **Custom card-loadout solver.** The chassis all carry `slots` and
-   `availableCards` already; nothing consumes them yet.
-2. **Aquilon mixer/slice verdicts**, once the slice rule is confirmed.
+1. **Aquilon mixer/slice verdicts**, once the slice rule is confirmed.
+2. **Barco Event Master card catalogue**, if a document with per-card connector
+   breakdowns turns up — that alone would extend loadout suggestions to four
+   more chassis.
 3. **Audio profile** for sound desks — the reason the core is generic.
