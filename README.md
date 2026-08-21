@@ -31,6 +31,19 @@ mixing layer twice what it charges a DL/2K one. Barco's ladder is 4K : DL : 2K =
 sixteen 4K layers still cannot put three on a screen living on one card. These
 are not modelled or derived — they are each vendor's published numbers, cited.
 
+**Card capacity, which is not the connector count.** This is the limit that
+catches people out. A Barco Event Master Gen 1 card has four connectors and
+takes exactly **one** 4K60 signal between them — Barco's own words are "1 4K60p
+or 4 HD" — so a single 4K60 source consumes the whole card and strands its other
+three sockets. An E2 Gen 1 shows 32 input connectors and has eight 4K60 inputs.
+An E2 Gen 2 shows twelve HDMI 2.0 inputs and can carry 4K60 on eight of them,
+because they sit on cards rated two apiece.
+
+**The backplane, separately.** The chassis caps below the sum of its cards: an
+E2 Gen 1 has four output cards rated one 4K60 each and is still limited to three
+4K outputs. Both limits are modelled, and a multi-cable 4K60 counts as one
+signal, not as its cables.
+
 **Canvas and throughput.** Barco's live effects canvas in megapixels, with the
 PGM-only trade-off offered when the show only fits that way. Analog Way's
 program throughput figure.

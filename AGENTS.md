@@ -59,6 +59,30 @@ just fits" on a plug where it does not. Pinned by a test against the published
 is 1:2. Barco's 4K:DL:2K is 1:2:4. They differ because their small unit is a
 different size. A pixel-count ratio would silently overrule both.
 
+**Card capacity is per SLOT, not per chassis** (`DeviceConfig.cardCapacity`),
+because a chassis can mix card ratings — Barco's E2 Tri-combo is a Gen 1 chassis
+carrying both 1x-4K60 combo cards and 2x-4K60 Tri-combos. It gets its own pass
+(`checkCardCapacity`) rather than a pool, since `checkPools` compares every
+instance of a scope against one capacity and the whole point is that they
+differ. The backplane cap is a separate, ordinary system pool.
+
+**Cost is measured against 4K60's LINK clock, 594 MHz** — not its active pixel
+rate of 498. The demands carry link rates, so measuring against the active rate
+puts 1080p60 at 0.30 of a 4K60 instead of exactly 0.25, and four HD signals then
+overflow a card the vendor says holds precisely four.
+
+**A multi-cable 4K60 is ONE 4K60 to a card.** `expandToPlugs` halves the rate
+per cable, so the cost function reconstructs the full rate and divides the cost
+back across the cables. Charging each half separately bills it twice, which on
+a one-4K60 card is the difference between fitting and not.
+
+**`rebalanceCards` runs after matching.** The matcher places plugs and knows
+nothing about the cards behind them, so it will pack four 4K60 signals onto one
+two-4K60 card while an identical card sits empty. The repair pass moves signals
+to free compatible plugs on emptier cards. It is a local search, not a
+guarantee — but it fixes the bunching that actually happens, and anything left
+over is still reported honestly as over capacity.
+
 **`PoolScope` is why the engine does not lie.** `system`, `per-screen`,
 `per-output` and `per-output-card`. PixelHue budgets layers per output card, and
 that is a completely different answer from the same number budgeted system-wide.
@@ -81,7 +105,7 @@ thing standing between a show name and the DOM. It emits no scripts.
 
 ## Verified vs assumed
 
-**Verified:** the engine. 55 tests cover the signal maths against published
+**Verified:** the engine. 67 tests cover the signal maths against published
 timings, mirror/select collapsing, the matching (including the four-SDI-sources
 case a count gets wrong), dual-cable rate splitting, adapter selection, layer
 costing, all four pool scopes, the aux-layer rule per vendor, the vision-mixer

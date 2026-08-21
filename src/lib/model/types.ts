@@ -121,8 +121,19 @@ export type PortRole = 'program' | 'aux' | 'multiviewer' | 'source'
  * card**, so an F8 with sixteen 4K layers of headroom still cannot put three 4K
  * layers on one screen if that screen lives on a single output card. Same
  * number, completely different answer.
+ *
+ * The per-card scopes also carry Barco's **card capacity**, which is a separate
+ * limit from the connector count and usually the binding one: an Event Master
+ * Gen 1 card has four connectors but takes only ONE 4K60 signal, so a single
+ * 4K60 source consumes the whole card and the other three sockets are dead.
+ * Counting connectors alone overstates such a chassis enormously.
  */
-export type PoolScope = 'system' | 'per-screen' | 'per-output' | 'per-output-card'
+export type PoolScope =
+  | 'system'
+  | 'per-screen'
+  | 'per-output'
+  | 'per-input-card'
+  | 'per-output-card'
 
 export interface Pool {
   id: string
@@ -158,6 +169,14 @@ export interface Card {
   ports: Omit<Port, 'id' | 'cardId'>[]
   /** Pools the card itself contributes (PixelHue budgets layers per card). */
   pools?: Pool[]
+  /**
+   * How many 4K60 signals the card carries, which is NOT its connector count.
+   * Barco's Gen 1 cards have four connectors and take one 4K60 between them
+   * ("1 4K60p or 4 HD"); a Tri-combo has six and takes two. A single 4K60
+   * source therefore consumes a whole Gen 1 card and strands its other three
+   * sockets — the limit people actually get caught by.
+   */
+  max4k60?: number
   provenance?: Provenance
 }
 
@@ -185,6 +204,14 @@ export interface DeviceConfig {
   ports: Port[]
   pools: Pool[]
   cards?: { cardId: string; count: number }[]
+  /**
+   * Slot id → how many 4K60 signals the card in that slot carries.
+   *
+   * Per-slot rather than per-chassis, because a chassis can be fitted with
+   * cards of different capacities: Barco's E2 Tri-combo is a Gen 1 chassis
+   * carrying both 1x-4K60 combo cards and 2x-4K60 Tri-combo cards.
+   */
+  cardCapacity?: Record<string, number>
   provenance?: Provenance
 }
 

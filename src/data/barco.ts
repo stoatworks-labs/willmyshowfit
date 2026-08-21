@@ -61,6 +61,7 @@ const BEM_GEN1_CARDS: Card[] = [
     id: 'bem-in-sdi-quad-g1',
     label: '4x 3G-SDI input card (Gen 1)',
     slot: 'input',
+    max4k60: 1,
     ports: Array.from({ length: 4 }, () => ({
       kind: 'sdi' as const,
       label: '3G-SDI',
@@ -85,6 +86,7 @@ const BEM_GEN1_CARDS: Card[] = [
     id: 'bem-in-hdmi-dp-combo-g1',
     label: '2x HDMI 1.4a + 2x DP 1.1 combo input card (Gen 1)',
     slot: 'input',
+    max4k60: 1,
     ports: [
       { kind: 'hdmi' as const, label: 'HDMI 1.4a', direction: 'in' as const, cap: CAP.hdmi14(297e6) },
       { kind: 'hdmi' as const, label: 'HDMI 1.4a', direction: 'in' as const, cap: CAP.hdmi14(297e6) },
@@ -109,6 +111,7 @@ const BEM_GEN1_CARDS: Card[] = [
     id: 'bem-out-sdi-quad-g1',
     label: '4x 3G-SDI output card (Gen 1)',
     slot: 'output',
+    max4k60: 1,
     ports: Array.from({ length: 4 }, () => ({
       kind: 'sdi' as const,
       label: '3G-SDI',
@@ -132,6 +135,7 @@ const BEM_GEN1_CARDS: Card[] = [
     id: 'bem-out-hdmi14-quad-g1',
     label: '4x HDMI 1.4a output card (Gen 1)',
     slot: 'output',
+    max4k60: 1,
     ports: [
       // ☠️ The four connectors on this card are NOT equal. Barco: "The top two
       // connectors of the card support up to 297 MPix/sec (2560x1600 typical).
@@ -163,6 +167,7 @@ const BEM_GEN2_CARDS: Card[] = [
     id: 'bem-in-tricombo-g2',
     label: '4K60 Tri-combo input card (Gen 2)',
     slot: 'input',
+    max4k60: 2,
     ports: [
       ...Array.from({ length: 4 }, () => ({
         kind: 'sdi' as const,
@@ -191,6 +196,7 @@ const BEM_GEN2_CARDS: Card[] = [
     id: 'bem-in-hdmi20-quad-g2',
     label: '4x HDMI 2.0 input card (Gen 2)',
     slot: 'input',
+    max4k60: 2,
     ports: Array.from({ length: 4 }, () => ({
       kind: 'hdmi' as const,
       label: 'HDMI 2.0',
@@ -213,6 +219,7 @@ const BEM_GEN2_CARDS: Card[] = [
     id: 'bem-in-dp12-quad-g2',
     label: '4x DisplayPort 1.2 input card (Gen 2)',
     slot: 'input',
+    max4k60: 2,
     ports: Array.from({ length: 4 }, () => ({
       kind: 'displayport' as const,
       label: 'DisplayPort 1.2',
@@ -235,6 +242,7 @@ const BEM_GEN2_CARDS: Card[] = [
     id: 'bem-out-tricombo-g2',
     label: '4K60 Tri-combo output card (Gen 2)',
     slot: 'output',
+    max4k60: 2,
     ports: [
       ...Array.from({ length: 4 }, () => ({
         kind: 'sdi' as const,
@@ -262,6 +270,7 @@ const BEM_GEN2_CARDS: Card[] = [
     id: 'bem-out-hdmi20-quad-g2',
     label: '4x HDMI 2.0 output card (Gen 2)',
     slot: 'output',
+    max4k60: 2,
     ports: Array.from({ length: 4 }, () => ({
       kind: 'hdmi' as const,
       label: 'HDMI 2.0',
@@ -335,6 +344,67 @@ function canvasPool(pvw: number, pgmOnly: number, at30: number | null, url: stri
   }
 }
 
+
+/**
+ * Barco's two capacity limits, both separate from the connector count and both
+ * usually the binding one. The per-card one lives on `DeviceConfig.cardCapacity`
+ * (per slot, since a chassis can mix card ratings); this builds the other.
+ *
+ * **Per card.** "HDMI output card supports 1 4K60p or 4 HD" — a Gen 1 card has
+ * four connectors and takes exactly one 4K60 signal, so a single 4K60 source
+ * consumes the whole card and the other three sockets are dead.
+ *
+ * **Per chassis.** The backplane caps the box below the sum of its cards. An
+ * E2 Gen 1 has four output cards good for one 4K60 each and is still limited to
+ * three 4K outputs.
+ *
+ * Both are denominated in 4K60 signals and spent on Barco's own 1 : 2 : 4
+ * ladder — 4K60 costs 1, 4K30 or dual-link 0.5, HD 0.25 — which makes four HD
+ * signals exactly fill a one-4K60 card, as the vendor's wording says they do.
+ */
+function chassisCapacity(
+  direction: 'in' | 'out',
+  total4k: number,
+  claim: string,
+  url: string,
+  model: string,
+): Pool {
+  return {
+    id: direction === 'in' ? 'chassis-4k-in' : 'chassis-4k-out',
+    label: `4K60 ${direction === 'in' ? 'inputs' : 'outputs'} for the whole chassis`,
+    capacity: total4k,
+    unit: '4K60 signals',
+    scope: 'system',
+    provenance: {
+      confidence: 'documented',
+      citations: [cite(claim, `Barco, ${model} spec sheet`, url)],
+      notes: [
+        'The backplane limit, which can be lower than the sum of the fitted cards — the E2 Gen 1 has four output cards good for one 4K60 each and still caps at three.',
+      ],
+    },
+  }
+}
+
+/** Ports for one card, tagged with its slot id so capacity can be charged. */
+function card(
+  cardId: string,
+  ports: Omit<Port, 'cardId'>[],
+): Port[] {
+  return ports.map((p) => ({ ...p, cardId }))
+}
+
+const sdi3g = (id: string, n: number, dir: 'in' | 'out', from: number, cardId: string): Port[] =>
+  card(cardId, run(id, 'sdi', '3G-SDI', CAP.sdi3g(), n, dir, {
+    from,
+    ...(dir === 'out' ? { roles: ['program', 'aux'] as Port['roles'] } : {}),
+  }))
+
+const sdi12g = (id: string, n: number, dir: 'in' | 'out', from: number, cardId: string): Port[] =>
+  card(cardId, run(id, 'sdi', '12G-SDI', CAP.sdi12g(), n, dir, {
+    from,
+    ...(dir === 'out' ? { roles: ['program', 'aux'] as Port['roles'] } : {}),
+  }))
+
 // =========================================================== S3 standalone
 
 const s3Ports: Port[] = [
@@ -381,6 +451,8 @@ const S3_STANDALONE: VideoDevice = {
       label: 'Stock loadout (3 in / 3 out cards)',
       stock: true,
       ports: s3Ports,
+      // Gen 1 cards: four connectors, one 4K60 between them.
+      cardCapacity: { 'in-1': 1, 'in-2': 1, 'in-3': 1, 'out-1': 1, 'out-2': 1, 'out-3': 1 },
       pools: [
         {
           id: 'layers',
@@ -411,6 +483,8 @@ const S3_STANDALONE: VideoDevice = {
           },
         },
         canvasPool(20, 40, null, URLS.s3, 'S3 STANDALONE'),
+        chassisCapacity('in', 3, '"Up to 3x 4K inputs"', URLS.s3, 'S3 STANDALONE'),
+        chassisCapacity('out', 3, '"Up to 3x 4K outputs"', URLS.s3, 'S3 STANDALONE'),
         { id: 'output-plugs', label: 'Output connectors', capacity: 12, unit: 'plugs', scope: 'system' },
         { id: 'input-plugs', label: 'Input connectors', capacity: 12, unit: 'plugs', scope: 'system' },
       ],
@@ -455,34 +529,28 @@ const E2_GEN1: VideoDevice = {
       label: 'Stock loadout (8 in / 4 out cards)',
       stock: true,
       ports: [
-        ...run('IN-SDI', 'sdi', '3G-SDI', CAP.sdi3g(), 12, 'in'),
-        ...run('IN-HDMI', 'hdmi', 'HDMI 1.4a', CAP.hdmi14(297e6), 10, 'in'),
-        ...run('IN-DP', 'displayport', 'DisplayPort 1.1', CAP.dp11(330e6), 10, 'in'),
-        ...run('OUT-SDI', 'sdi', '3G-SDI', CAP.sdi3g(), 4, 'out', { roles: ['program', 'aux'] }),
-        // ☠️ NOT eight equal plugs. These come from two Gen 1 quad output
-        // cards, and Barco rates each card's top two connectors at 297 MPix/s
-        // and its bottom two at 165. Modelling all eight at 297 claims four
-        // 2560x1600 outputs the chassis has not got.
-        ...run('OUT-HDMI', 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', {
-          cardId: 'out-2',
-          roles: ['program', 'aux'],
-        }),
-        ...run('OUT-HDMI-B', 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', {
-          cardId: 'out-2',
-          roles: ['program', 'aux'],
-        }),
-        ...run('OUT-HDMI-C', 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', {
-          cardId: 'out-3',
-          roles: ['program', 'aux'],
-        }),
-        ...run('OUT-HDMI-D', 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', {
-          cardId: 'out-3',
-          roles: ['program', 'aux'],
-        }),
-        ...run('MVR', 'hdmi', 'HDMI 1.4a (Multiviewer)', CAP.hdmi14(297e6), 2, 'out', {
+        // 32 inputs over 8 cards: three quad-SDI, five HDMI/DP combo (2+2).
+        ...[0, 1, 2].flatMap((c) => sdi3g('IN-SDI', 4, 'in', c * 4 + 1, `in-${c + 1}`)),
+        ...[0, 1, 2, 3, 4].flatMap((c) => [
+          ...card(`in-${c + 4}`, run('IN-HDMI', 'hdmi', 'HDMI 1.4a', CAP.hdmi14(297e6), 2, 'in', { from: c * 2 + 1 })),
+          ...card(`in-${c + 4}`, run('IN-DP', 'displayport', 'DisplayPort 1.1', CAP.dp11(330e6), 2, 'in', { from: c * 2 + 1 })),
+        ]),
+        // 14 outputs over 4 cards: one quad-SDI, three quad-HDMI (2 fast + 2 slow each).
+        ...sdi3g('OUT-SDI', 4, 'out', 1, 'out-1'),
+        ...[0, 1].flatMap((c) => [
+          ...card(`out-${c + 2}`, run(`OUT-HDMI${c ? '-C' : ''}`, 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', { from: 1, roles: ['program', 'aux'] })),
+          ...card(`out-${c + 2}`, run(`OUT-HDMI${c ? '-D' : '-B'}`, 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', { from: 1, roles: ['program', 'aux'] })),
+        ]),
+        ...card('out-4', run('MVR', 'hdmi', 'HDMI 1.4a (Multiviewer)', CAP.hdmi14(297e6), 2, 'out', {
           roles: ['multiviewer'],
-        }),
+        })),
       ],
+      // "Up to 8 x 4K inputs - each input card supports up to 4K@60p": one
+      // 4K60 per Gen 1 card, whatever its four connectors happen to be.
+      cardCapacity: Object.fromEntries([
+        ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => [`in-${n}`, 1]),
+        ...[1, 2, 3, 4].map((n) => [`out-${n}`, 1]),
+      ]),
       pools: [
         {
           id: 'layers',
@@ -513,6 +581,8 @@ const E2_GEN1: VideoDevice = {
           },
         },
         canvasPool(20, 40, 80, URLS.e2g1, 'E2'),
+        chassisCapacity('in', 8, '"Up to 8 x 4K inputs"', URLS.e2g1, 'E2'),
+        chassisCapacity('out', 3, '"Up to 3 x 4K outputs" — three, though four output cards are fitted', URLS.e2g1, 'E2'),
         { id: 'input-plugs', label: 'Input connectors', capacity: 32, unit: 'plugs', scope: 'system' },
         { id: 'output-plugs', label: 'Output connectors', capacity: 14, unit: 'plugs', scope: 'system' },
       ],
@@ -526,6 +596,7 @@ const E2_GEN1: VideoDevice = {
   caveats: [
     'E2 Gen 1 is an HD-plug chassis: its HDMI is 1.4a at 297 MHz and its DisplayPort is 1.1. A single-cable 4K60 source will not go into it — 4K arrives as 2 or 4 cables, and the sheet caps the chassis at 8x 4K inputs and 3x 4K outputs however they are wired.',
     "Barco's own E2 Gen 1 spec sheet duplicates the Scaled Aux text into its Mixers row, so that row says nothing about layers. The layer figures here come from the separate \"PIP layers (per chassis)\" section instead.",
+    'An Event Master Gen 1 card takes ONE 4K60 signal across its four connectors — Barco\'s wording is "1 4K60p or 4 HD" — so a single 4K60 source consumes a whole card and leaves its other three sockets unusable. That, not the 32-connector count, is why this chassis caps at 8x 4K in and 3x 4K out.',
     'The eight HDMI outputs are not interchangeable: on each quad output card the top two connectors run to 297 MPix/s and the bottom two only to 165. Four of the eight will not carry 2560x1600. The chassis spec sheet quotes only the 297 figure; the per-connector split is on the Tri-combo sheet.',
   ],
   provenance: {
@@ -557,21 +628,36 @@ const E2_GEN2: VideoDevice = {
       label: 'Stock loadout (8 in / 4 out Gen 2 cards)',
       stock: true,
       ports: [
-        ...run('IN-SDI', 'sdi', '12G-SDI', CAP.sdi12g(), 16, 'in'),
-        ...run('IN-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(600e6), 12, 'in'),
-        ...run('IN-DP', 'displayport', 'DisplayPort 1.2', CAP.dp12(600e6), 12, 'in'),
-        ...run('OUT-SDI', 'sdi', '12G-SDI', CAP.sdi12g(), 4, 'out', { roles: ['program', 'aux'] }),
-        // Barco: "WITH MVR: Up to 6x 4K60p outputs and either 4x HDMI for FHD
-        // Multi-viewers (1920x1200 max) OR 1x HDMI for UHD/4K60p Multi-viewer".
-        // There is no dedicated multiviewer plug on this chassis — a multiviewer
-        // costs you program outputs, which the caveat spells out.
-        ...run('OUT-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(600e6), 13, 'out', {
-          roles: ['program', 'aux', 'multiviewer'],
-        }),
-        ...run('OUT-DP', 'displayport', 'DisplayPort', CAP.dp12(660e6), 1, 'out', {
-          roles: ['program', 'aux'],
-        }),
+        // 40 inputs over 8 Gen 2 cards: four Tri-combo (4 SDI + 1 HDMI + 1 DP),
+        // two HDMI 2.0 quad, two DP 1.2 quad.
+        ...[0, 1, 2, 3].flatMap((c) => [
+          ...sdi12g('IN-SDI', 4, 'in', c * 4 + 1, `in-${c + 1}`),
+          ...card(`in-${c + 1}`, run('IN-TC-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(600e6), 1, 'in', { from: c + 1 })),
+          ...card(`in-${c + 1}`, run('IN-TC-DP', 'displayport', 'DisplayPort 1.2', CAP.dp12(600e6), 1, 'in', { from: c + 1 })),
+        ]),
+        ...[0, 1].flatMap((c) =>
+          card(`in-${c + 5}`, run('IN-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(600e6), 4, 'in', { from: c * 4 + 1 })),
+        ),
+        ...[0, 1].flatMap((c) =>
+          card(`in-${c + 7}`, run('IN-DP', 'displayport', 'DisplayPort 1.2', CAP.dp12(600e6), 4, 'in', { from: c * 4 + 1 })),
+        ),
+        // 18 outputs over 4 cards: one Tri-combo, three HDMI 2.0 quad.
+        ...sdi12g('OUT-SDI', 4, 'out', 1, 'out-1'),
+        ...card('out-1', run('OUT-TC-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(600e6), 1, 'out', { roles: ['program', 'aux', 'multiviewer'] })),
+        ...card('out-1', run('OUT-DP', 'displayport', 'DisplayPort', CAP.dp12(660e6), 1, 'out', { roles: ['program', 'aux'] })),
+        ...[0, 1, 2].flatMap((c) =>
+          card(`out-${c + 2}`, run('OUT-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(600e6), 4, 'out', {
+            from: c * 4 + 1,
+            roles: ['program', 'aux', 'multiviewer'],
+          })),
+        ),
       ],
+      // Gen 2 cards take two 4K60 each — the real difference between the
+      // generations, since the slot count is identical.
+      cardCapacity: Object.fromEntries([
+        ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => [`in-${n}`, 2]),
+        ...[1, 2, 3, 4].map((n) => [`out-${n}`, 2]),
+      ]),
       pools: [
         {
           id: 'layers',
@@ -602,6 +688,8 @@ const E2_GEN2: VideoDevice = {
           },
         },
         canvasPool(20, 40, 80, URLS.e2g2, 'E2 GEN 2'),
+        chassisCapacity('in', 16, '"Up to 16 x 4K inputs"', URLS.e2g2, 'E2 GEN 2'),
+        chassisCapacity('out', 8, '"NO MVR: Up to 8 x 4K60p outputs"', URLS.e2g2, 'E2 GEN 2'),
         { id: 'input-plugs', label: 'Input connectors', capacity: 40, unit: 'plugs', scope: 'system' },
         { id: 'output-plugs', label: 'Output connectors', capacity: 18, unit: 'plugs', scope: 'system' },
       ],
@@ -614,6 +702,7 @@ const E2_GEN2: VideoDevice = {
   },
   caveats: [
     'The multiviewer costs outputs on E2 Gen 2: 8x 4K60 outputs with no multiviewer, or 6x 4K60 plus multiviewer feeds. This tool counts the plugs but does not model that swap — if the show uses a multiviewer, check the 4K output count by hand.',
+    'A Gen 2 card takes two 4K60 signals across its connectors, twice the Gen 1 card. That is the real difference between the two generations of this chassis: same slot count, double the 4K throughput.',
     'The chassis carries 16x 4K inputs of the 40 connectors. A show wanting more than 16 single-cable 4K sources will not fit even though the plug count says otherwise.',
   ],
   provenance: {
@@ -654,9 +743,16 @@ const E3: VideoDevice = {
       label: 'Standard configuration (4 in / 2 out Gen2 cards)',
       stock: true,
       ports: [
-        ...run('IN-SDI', 'sdi', '12G-SDI', CAP.sdi12g(), 4, 'in'),
-        ...run('IN-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(), 9, 'in'),
-        ...run('IN-DP', 'displayport', 'DisplayPort 1.2', CAP.dp12(), 5, 'in'),
+        // Four input cards in the standard configuration. Barco publishes the
+        // connector maxima (4 SDI / 9 HDMI / 5 DP) rather than a fixed card
+        // layout, so plugs are spread evenly across the four cards; the
+        // `input-plugs` pool is what actually caps the total at sixteen.
+        ...card('in-1', run('IN-SDI', 'sdi', '12G-SDI', CAP.sdi12g(), 4, 'in')),
+        ...card('in-2', run('IN-HDMI', 'hdmi', 'HDMI 2.0', CAP.hdmi20(), 4, 'in', { from: 1 })),
+        ...card('in-3', run('IN-HDMI-B', 'hdmi', 'HDMI 2.0', CAP.hdmi20(), 4, 'in', { from: 5 })),
+        ...card('in-4', run('IN-HDMI-C', 'hdmi', 'HDMI 2.0', CAP.hdmi20(), 1, 'in', { from: 9 })),
+        ...card('in-4', run('IN-DP', 'displayport', 'DisplayPort 1.2', CAP.dp12(), 3, 'in', { from: 1 })),
+        ...card('in-3', run('IN-DP-B', 'displayport', 'DisplayPort 1.2', CAP.dp12(), 2, 'in', { from: 4 })),
         ...run('OUT-SDI', 'sdi', '12G-SDI', CAP.sdi12g(), 4, 'out', {
           cardId: 'out-1',
           roles: ['program', 'aux'],
@@ -673,6 +769,9 @@ const E3: VideoDevice = {
           roles: ['multiviewer'],
         }),
       ],
+      // "Each input card supports up to 4x 4K @60p inputs" — ENCORE3's cards
+      // are twice the Gen 2 Event Master card again.
+      cardCapacity: { 'in-1': 4, 'in-2': 4, 'in-3': 4, 'in-4': 4, 'out-1': 4, 'out-2': 4 },
       pools: [
         {
           id: 'layers',
@@ -703,6 +802,8 @@ const E3: VideoDevice = {
             ],
           },
         },
+        chassisCapacity('in', 16, '"Standard Encore3 Configuration: 16x 4K @60p inputs"', URLS.e3, 'ENCORE3'),
+        chassisCapacity('out', 8, '"Standard Encore3 Configuration: 8x 4K@60p outputs"', URLS.e3, 'ENCORE3'),
         {
           id: 'input-plugs',
           label: 'Input connectors',

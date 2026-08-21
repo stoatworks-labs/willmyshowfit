@@ -12,6 +12,8 @@ import {
 } from '../profiles/video.ts'
 import {
   checkPools,
+  rebalanceCards,
+  type PoolUsage,
   expandToPlugs,
   matchPorts,
   resourcesOf,
@@ -73,11 +75,26 @@ export function evaluateConfig(
   const resources = resourcesOf(config)
   const plugs = expandToPlugs(demands.ports)
   const ports = matchPorts(resources, plugs)
+  // The matcher places plugs; it does not know which card is behind each one,
+  // so it can bunch 4K signals onto a card that cannot hold them while an
+  // identical card sits empty. Spread them out before anything is judged.
+  if (config.cardCapacity) {
+    rebalanceCards(
+      ports,
+      (cardId) => config.cardCapacity![cardId],
+      (d) => fourKCost(d.need.pixelRateHz, d.cable?.of ?? 1),
+    )
+  }
 
-  // ---- pools, with the per-output-card scope resolved from the port assignment
+  // ---- pools, with the per-card scopes resolved from the port assignment
   const scopeLabels = new Map<string, string>(show.screens.map((s) => [s.id, s.name]))
-  const poolDemands = retargetCardScopedDemands(config, show, demands.pools, ports, scopeLabels)
+  const poolDemands = [
+    ...retargetCardScopedDemands(config, show, demands.pools, ports, scopeLabels),
+    ...cardCapacityDemands(config, ports, scopeLabels),
+  ]
   const pools = checkPools(config.pools, poolDemands, scopeLabels)
+  pools.usage.push(...checkCardCapacity(config, ports))
+  pools.ok = pools.usage.every((u) => u.ok || u.rescuedBy != null)
 
   // ---- verdict
   const blockers: string[] = [...demands.impossible]
@@ -191,6 +208,129 @@ export function evaluateConfig(
 }
 
 /**
+ * Charge every assigned plug against the capacity of the card it landed on.
+ *
+ * This is the limit people get caught by. An Event Master Gen 1 card carries
+ * four connectors and exactly ONE 4K60 signal — Barco's own words are "1 4K60p
+ * or 4 HD" — so a single 4K60 source fills the card and the other three sockets
+ * cannot be used for anything. A chassis with eight such cards has thirty-two
+ * connectors and eight 4K60 inputs, and only one of those numbers is the answer
+ * to "will my show fit".
+ *
+ * Capacity is denominated in 4K60 signals and spent on the same 1 : 2 : 4
+ * ladder Barco uses everywhere else — a 4K60 costs 1, a 4K30 or dual-link 0.5,
+ * an HD 0.25. On a one-4K60 card that makes four HD signals exactly fill it,
+ * which is the vendor's own arithmetic back again.
+ *
+ * A device that declares no per-card capacity pool is simply not metered.
+ */
+function cardCapacityDemands(
+  config: DeviceConfig,
+  ports: ReturnType<typeof matchPorts>,
+  scopeLabels: Map<string, string>,
+): PoolDemand[] {
+  const chassisIn = config.pools.find((p) => p.id === 'chassis-4k-in')
+  const chassisOut = config.pools.find((p) => p.id === 'chassis-4k-out')
+  if (!chassisIn && !chassisOut) return []
+
+  const out: PoolDemand[] = []
+  for (const a of ports.assignments) {
+    if (a.demand.roles?.length === 1 && a.demand.roles[0] === 'multiviewer') continue
+    const pool = a.demand.direction === 'in' ? chassisIn : chassisOut
+    if (!pool) continue
+    out.push({
+      poolId: pool.id,
+      amount: fourKCost(a.demand.need.pixelRateHz, a.demand.cable?.of ?? 1),
+      scopeKey: '',
+      because: `${a.demand.label} on ${a.port.id}`,
+    })
+  }
+  void scopeLabels
+  return out
+}
+
+/**
+ * Per-slot card capacity, checked against each card's own rating.
+ *
+ * A pool cannot express this: `checkPools` compares every instance of a scope
+ * against one capacity, and the whole point here is that two cards in the same
+ * chassis can be rated differently. So it gets its own pass, producing the same
+ * `PoolUsage` shape so the UI and the report need no special case.
+ */
+export function checkCardCapacity(
+  config: DeviceConfig,
+  ports: ReturnType<typeof matchPorts>,
+): PoolUsage[] {
+  const caps = config.cardCapacity
+  if (!caps) return []
+
+  const used = new Map<string, { total: number; why: PoolDemand[] }>()
+  for (const a of ports.assignments) {
+    const cardId = a.port.cardId
+    if (!cardId || caps[cardId] == null) continue
+    if (a.demand.roles?.length === 1 && a.demand.roles[0] === 'multiviewer') continue
+    const cost = fourKCost(a.demand.need.pixelRateHz, a.demand.cable?.of ?? 1)
+    const entry = used.get(cardId) ?? { total: 0, why: [] }
+    entry.total += cost
+    entry.why.push({
+      poolId: 'card-4k',
+      amount: cost,
+      scopeKey: cardId,
+      because: `${a.demand.label} on ${a.port.id}`,
+    })
+    used.set(cardId, entry)
+  }
+
+  const out: PoolUsage[] = []
+  for (const [cardId, entry] of used) {
+    const capacity = caps[cardId]
+    const total = Math.round(entry.total * 1e6) / 1e6
+    out.push({
+      pool: {
+        id: 'card-4k',
+        label: '4K60 capacity of the card',
+        capacity,
+        unit: '4K60 signals',
+        scope: cardId.startsWith('in') ? 'per-input-card' : 'per-output-card',
+      },
+      scopeKey: cardId,
+      scopeLabel: prettyCard(cardId),
+      used: total,
+      capacity,
+      ok: total <= capacity + 1e-9,
+      contributors: entry.why,
+    })
+  }
+  return out
+}
+
+/**
+ * Barco's 1 : 2 : 4 ladder, in units of one 4K60 signal.
+ *
+ * `cables` matters: a 4K60 arriving on two cables is still ONE 4K60 signal as
+ * far as the card is concerned, and charging each half separately would bill it
+ * twice — which on a one-4K60 card is the difference between fitting and not.
+ * The plug demand already carries the halved rate, so the full rate is
+ * reconstructed and the cost split back across the cables.
+ */
+function fourKCost(pixelRateHz: number, cables = 1): number {
+  // Compare like with like: the demand carries a LINK rate (blanking
+  // included), so the yardstick has to be 4K60's link clock of 594 MHz, not
+  // its active pixel rate of 498. Measuring one against the other puts
+  // 1080p60 at 0.30 of a 4K60 instead of exactly 0.25, and four HD signals
+  // then overflow a card the vendor says holds precisely four.
+  const UHD60_CLOCK = 594e6
+  const full = pixelRateHz * cables
+  const whole = full > UHD60_CLOCK * 0.55 ? 1 : full > UHD60_CLOCK * 0.28 ? 0.5 : 0.25
+  return whole / cables
+}
+
+function prettyCard(cardId: string): string {
+  const m = /^(in|out)-(\d+)$/.exec(cardId)
+  return m ? `${m[1] === 'in' ? 'input' : 'output'} card ${m[2]}` : cardId
+}
+
+/**
  * Move per-output-card pool demands onto the cards the show actually landed on.
  *
  * PixelHue budgets mixing layers per output card, so a screen's layers are
@@ -210,7 +350,9 @@ function retargetCardScopedDemands(
   scopeLabels: Map<string, string>,
 ): PoolDemand[] {
   const cardScoped = new Set(
-    config.pools.filter((p) => p.scope === 'per-output-card').map((p) => p.id),
+    config.pools
+      .filter((p) => p.scope === 'per-output-card' && !p.id.startsWith('card-'))
+      .map((p) => p.id),
   )
   if (cardScoped.size === 0) return demands
 

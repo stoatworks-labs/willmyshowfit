@@ -149,6 +149,39 @@ function bestOf(
   })[0]
 }
 
+/**
+ * A card's 4K60 rating, not its connector count, is usually what runs out.
+ * The search has to know that, or it proposes a loadout with plenty of sockets
+ * that `evaluateConfig` then rejects — and "no loadout fits" would be wrong.
+ */
+function capacityHolds(cards: Card[], counts: number[], sol: ReturnType<typeof matchPorts>): boolean {
+  const capOf = new Map<string, number>()
+  let idx = 0
+  for (let c = 0; c < cards.length; c++) {
+    for (let n = 0; n < counts[c]; n++) {
+      idx += 1
+      if (cards[c].max4k60 != null) capOf.set(String(idx), cards[c].max4k60!)
+    }
+  }
+  if (capOf.size === 0) return true
+
+  const used = new Map<string, number>()
+  for (const a of sol.assignments) {
+    const slot = a.port.cardId?.split('-')[1]
+    if (!slot || !capOf.has(slot)) continue
+    // Same rule as evaluateConfig: a multi-cable 4K60 is one 4K60 to the card.
+    const UHD60_CLOCK = 594e6
+    const cables = a.demand.cable?.of ?? 1
+    const full = a.demand.need.pixelRateHz * cables
+    const whole = full > UHD60_CLOCK * 0.55 ? 1 : full > UHD60_CLOCK * 0.28 ? 0.5 : 0.25
+    used.set(slot, (used.get(slot) ?? 0) + whole / cables)
+  }
+  for (const [slot, amount] of used) {
+    if (amount > capOf.get(slot)! + 1e-9) return false
+  }
+  return true
+}
+
 function solveDirection(
   cards: Card[],
   slots: number,
@@ -173,7 +206,9 @@ function solveDirection(
         pools: [],
       })
       const sol = matchPorts(resources, demands)
-      if (sol.ok) feasible.push({ counts, ports, spare: sol.spare.length })
+      if (sol.ok && capacityHolds(cards, counts, sol)) {
+        feasible.push({ counts, ports, spare: sol.spare.length })
+      }
     }
 
     const best = bestOf(feasible)
@@ -251,11 +286,28 @@ export function proposeLoadout(device: VideoDevice, show: Show): LoadoutOutcome 
     .map((card, i) => ({ card, count: best!.outCounts[i] }))
     .filter((c) => c.count > 0)
 
+  // Slot id -> that card's 4K60 rating, so the ordinary evaluation applies the
+  // same per-card cap to a generated loadout as it does to a stock one.
+  const cardCapacity: Record<string, number> = {}
+  for (const [dir, counts, list] of [
+    ['in', best.inCounts, inputCards],
+    ['out', best.outCounts, outputCards],
+  ] as const) {
+    let idx = 0
+    for (let c = 0; c < list.length; c++) {
+      for (let n = 0; n < counts[c]; n++) {
+        idx += 1
+        if (list[c].max4k60 != null) cardCapacity[`${dir}-${idx}`] = list[c].max4k60!
+      }
+    }
+  }
+
   const config: DeviceConfig = {
     id: 'custom',
     label: `Suggested loadout (${describeCards(inList)} in, ${describeCards(outList)} out)`,
     stock: false,
     ports: best.ports,
+    ...(Object.keys(cardCapacity).length > 0 ? { cardCapacity } : {}),
     // Chassis-level capacity — layers, canvas, connector maxima — belongs to
     // the box, not to the cards, so it carries over from the stock profile.
     // PixelHue's per-output-card layer pool re-scopes itself automatically,

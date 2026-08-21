@@ -411,3 +411,76 @@ export interface ConfigResult {
   /** Headroom summary, for ranking devices that all fit. */
   headroom: { inputs: number; outputs: number; layers: number | null }
 }
+
+
+/**
+ * Move assignments off over-loaded cards onto emptier ones.
+ *
+ * `matchPorts` knows about plugs, not about the cards behind them, so it will
+ * happily pack four 4K60 signals onto the four sockets of one card that is
+ * rated for two — while an identical card sits empty next to it. The matching
+ * is valid; the loadout is not.
+ *
+ * Rather than teach the matcher a side constraint (which turns a clean
+ * bipartite match into something much harder), this repairs afterwards: for
+ * each over-subscribed card, try to move one of its signals to a free,
+ * compatible plug on a card with room. It is a local search, so it is not
+ * guaranteed to find a legal arrangement where one exists — but it fixes the
+ * case that actually occurs, which is a matcher that has bunched signals for
+ * no reason. Anything it cannot repair is still reported as over capacity.
+ */
+export function rebalanceCards(
+  solution: PortSolution,
+  capacityOf: (cardId: string) => number | undefined,
+  costOf: (demand: PlugDemand) => number,
+): void {
+  const load = new Map<string, number>()
+  const bump = (cardId: string | undefined, delta: number) => {
+    if (!cardId || capacityOf(cardId) == null) return
+    load.set(cardId, (load.get(cardId) ?? 0) + delta)
+  }
+  for (const a of solution.assignments) bump(a.port.cardId, costOf(a.demand))
+
+  const over = () => [...load].filter(([id, n]) => n > capacityOf(id)! + 1e-9).map(([id]) => id)
+
+  // Bounded: every pass either moves something or gives up.
+  for (let guard = 0; guard < 200; guard++) {
+    const hot = over()
+    if (hot.length === 0) return
+
+    let moved = false
+    for (const cardId of hot) {
+      const candidates = solution.assignments
+        .filter((a) => a.port.cardId === cardId)
+        .sort((x, y) => costOf(y.demand) - costOf(x.demand))
+
+      for (const a of candidates) {
+        const cost = costOf(a.demand)
+        const target = solution.spare.find((r) => {
+          const cid = r.ports[0]?.cardId
+          if (!cid || cid === cardId) return false
+          const cap = capacityOf(cid)
+          if (cap == null) return false
+          if ((load.get(cid) ?? 0) + cost > cap + 1e-9) return false
+          return portTakes(r, a.demand).ok
+        })
+        if (!target) continue
+
+        const match = portTakes(target, a.demand)
+        const freed: Resource = { ...a.resource }
+        a.resource = target
+        a.port = match.port!
+        if (match.adapter) a.adapter = match.adapter
+        else delete a.adapter
+
+        solution.spare = solution.spare.filter((r) => r.id !== target.id).concat(freed)
+        bump(cardId, -cost)
+        bump(target.ports[0]?.cardId, cost)
+        moved = true
+        break
+      }
+      if (moved) break
+    }
+    if (!moved) return
+  }
+}

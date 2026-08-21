@@ -259,3 +259,129 @@ describe('custom card loadouts', () => {
     expect(layerPool?.capacity).toBe(2)
   })
 })
+
+// ------------------------------------------------- Barco capacity limits
+
+/**
+ * The limit that catches people out. An Event Master Gen 1 card has four
+ * connectors and takes exactly ONE 4K60 signal between them, so a chassis with
+ * 32 input connectors has eight 4K60 inputs — and a model that counts sockets
+ * overstates it by a factor of four.
+ */
+describe('Barco card and backplane capacity', () => {
+  const UHD = { hActive: 3840, vActive: 2160, refreshHz: 60, bpc: 8 as const, sampling: 'rgb444' as const }
+
+  /**
+   * Gen 1 has no plug that takes single-cable 4K60 — its HDMI is 1.4a at
+   * 297 MPix/s — so 4K arrives on two cables, which is how it is actually done.
+   * Two cables are still ONE 4K60 signal to the card's capacity.
+   */
+  function uhdSources(n: number, cables: 1 | 2 = 2): Show {
+    return {
+      ...emptyShow(),
+      sources: [
+        { id: 'srv', name: '4K server', connector: 'hdmi', count: n, format: UHD, plugsPerSignal: cables },
+      ],
+      screens: [screen()],
+    }
+  }
+
+  it('lets one 4K60 source consume a whole Gen 1 card', () => {
+    const d = byId('barco-e2-gen1')
+    const stock = d.configs.find((c) => c.stock)!
+    const r = evaluateConfig(d, stock, uhdSources(1))
+    const card = r.pools.usage.find((u) => u.pool.id === 'card-4k' && u.scopeLabel.startsWith('input'))
+    expect(card?.used).toBe(1)
+    expect(card?.capacity).toBe(1)
+    // Full, despite that card still having three unused sockets.
+    expect(card?.ok).toBe(true)
+  })
+
+  it('runs out of 4K capacity long before it runs out of connectors', () => {
+    const d = byId('barco-e2-gen1')
+    const stock = d.configs.find((c) => c.stock)!
+    expect(stock.ports.filter((p) => p.direction === 'in')).toHaveLength(32)
+
+    // Each dual-cable 4K60 takes both HDMI connectors on a combo card and
+    // fills that card's single 4K60 slot. Five cards, five sources.
+    expect(evaluateConfig(d, stock, uhdSources(5)).verdict).toBe('fits')
+
+    // A sixth has nowhere to go: 32 connectors, and not one of them free for
+    // this. The blocker must never read as a layer or canvas shortfall.
+    const six = evaluateConfig(d, stock, uhdSources(6))
+    expect(six.verdict).toBe('does-not-fit')
+    expect(six.blockers.join(' ')).toMatch(/no plug|4K60/i)
+  })
+
+  it('gives the Gen 2 chassis 4K capacity the Gen 1 simply has not got', () => {
+    const g1 = byId('barco-e2-gen1')
+    const g2 = byId('barco-e2-gen2')
+    // Same chassis size, same slot count. The cards are the difference.
+    expect(g1.slots).toEqual(g2.slots)
+
+    // Gen 1 cannot take a single-cable 4K60 at all — no plug is fast enough.
+    expect(evaluateConfig(g1, g1.configs[0], uhdSources(1, 1)).verdict).toBe('does-not-fit')
+    // Gen 2 can.
+    expect(evaluateConfig(g2, g2.configs[0], uhdSources(1, 1)).verdict).toBe('fits')
+  })
+
+  it('has twelve HDMI 2.0 inputs and room for eight 4K60 among them', () => {
+    // The exact trap: an E2 Gen 2 shows twelve HDMI 2.0 input connectors, but
+    // they sit on cards rated two 4K60 apiece — four Tri-combos with one HDMI
+    // each, and two quad cards whose four sockets share a two-4K60 budget. So
+    // eight of those twelve connectors can carry 4K60 and four cannot.
+    const g2 = byId('barco-e2-gen2')
+    const stock = g2.configs[0]
+    expect(
+      stock.ports.filter((p) => p.direction === 'in' && p.kind === 'hdmi'),
+    ).toHaveLength(12)
+
+    expect(evaluateConfig(g2, stock, uhdSources(8, 1)).verdict).toBe('fits')
+
+    const nine = evaluateConfig(g2, stock, uhdSources(9, 1))
+    expect(nine.verdict).toBe('does-not-fit')
+    // Nine fails on card capacity, not on connectors — there are three spare.
+    expect(nine.blockers.join(' ')).toMatch(/4K60 capacity of the card/)
+  })
+
+  it('caps the backplane below the sum of the fitted cards', () => {
+    // Four Gen 1 output cards rated one 4K60 each is four, and Barco still
+    // caps the chassis at three 4K outputs. The backplane is the real limit.
+    const stock = byId('barco-e2-gen1').configs.find((c) => c.stock)!
+    const chassis = stock.pools.find((p) => p.id === 'chassis-4k-out')!
+    expect(chassis.capacity).toBe(3)
+
+    const outputCards = Object.entries(stock.cardCapacity ?? {}).filter(([k]) => k.startsWith('out-'))
+    const cardSum = outputCards.reduce((n, [, v]) => n + v, 0)
+    expect(cardSum).toBe(4)
+    expect(chassis.capacity).toBeLessThan(cardSum)
+  })
+
+  it('charges four HD signals as exactly one 4K60, which is Barco\'s own wording', () => {
+    // "1 4K60p or 4 HD" — four HD must fill a one-4K60 card precisely.
+    const d = byId('barco-s3-standalone')
+    const show: Show = {
+      ...emptyShow(),
+      sources: [{ id: 's', name: 'Laptops', connector: 'hdmi', count: 4, format: HD }],
+      screens: [screen()],
+    }
+    const r = evaluateConfig(d, d.configs[0], show)
+    const card = r.pools.usage.find((u) => u.pool.id === 'card-4k' && u.scopeLabel.startsWith('input'))
+    expect(card?.used).toBe(1)
+    expect(card?.ok).toBe(true)
+  })
+
+  it('does not propose a loadout that busts card capacity', () => {
+    // Plenty of sockets available, but Gen 1 cards cannot carry this many 4K60
+    // and the search must not hand back a loadout the evaluation then rejects.
+    const d = byId('barco-s3-standalone')
+    const out = proposeLoadout(d, uhdSources(12))
+    if (out.kind === 'proposed') {
+      expect(out.proposal.result.verdict).not.toBe('does-not-fit')
+      const over = out.proposal.result.pools.usage.filter((u) => !u.ok && !u.rescuedBy)
+      expect(over).toEqual([])
+    } else {
+      expect(out.kind).toBe('no-loadout-fits')
+    }
+  })
+})
