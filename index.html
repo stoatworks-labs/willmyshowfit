@@ -9,6 +9,12 @@
       content="Describe a show's screens, layers, sources and destinations, and see which video switchers it actually fits on — with a proposed wiring topology for each."
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111b2e'/%3E%3Crect x='6' y='9' width='20' height='13' rx='2' fill='none' stroke='%236ea8dc' stroke-width='2'/%3E%3Cpath d='M11 15.5h4M11 18.5h10' stroke='%236ea8dc' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS ignores the manifest's icons and wants a PNG of its own. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Tints the status bar when installed. Two, so it follows the theme. -->
+    <meta name="theme-color" content="#fbfbf9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1620" media="(prefers-color-scheme: dark)" />
   </head>
   <body>
     <div id="root"></div>
