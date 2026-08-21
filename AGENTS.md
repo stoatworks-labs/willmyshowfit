@@ -120,6 +120,25 @@ Recorded in the data with the discrepancy stated, not smoothed over:
   32-output maximum and the 16× 4K layer figure); the card-layout diagram is
   labelled 6. Eight is used; the caveat says to confirm against the chassis.
 
+## Where the Barco card catalogue came from
+
+Barco publishes no per-card connector table in the four chassis sheets this
+database was built from — which is why Event Master had no loadout suggestions
+at first. The **Tri-combo** sheets publish it in passing, while describing their
+own pre-loaded configurations, and the three statements reconcile *exactly* with
+the input and output totals of three different chassis:
+
+- Tri-combo card = 4x 12G-SDI + 1x HDMI 2.0 + 1x DP 1.2 (six connectors,
+  capped at 2x 4K60 — the plug count is not the 4K count)
+- HDMI 2.0 quad and DP 1.2 quad = four each
+- Gen 1 HDMI/DP combo = 2 + 2, which is forced by the chassis totals
+
+**And the Gen 1 HDMI output card's four connectors are not equal**: top two at
+297 MPix/s, bottom two at 165. The chassis sheets quote only 297. That
+correction changed the E2 Gen 1 and S3 standalone stock profiles — both had been
+claiming twice the 2560x1600 output capability they have. Found because a
+loadout test disagreed with the data, which is the whole point of having both.
+
 ## Deployment
 
 Cloudflare Worker serving static assets, apex + `www` custom domains declared in
@@ -142,8 +161,11 @@ one search over ~27,000 combined loadouts becomes two over a few hundred each.
 `either` slots are handled by trying every split.
 
 Loadouts are enumerated in increasing card count, so the first feasible one is
-minimal by construction. Ties break on fewest distinct card types, then most
-spare plugs. Multiviewer plugs belong to the chassis, not a card, so those
+minimal by construction. Ties break on fewest distinct card types, then
+**fewest plugs** — the tightest fit. That last one was originally "most spare
+plugs", which specified a six-connector Tri-combo to carry a single HDMI
+source; "smallest arrangement that fits" has to mean smallest or the suggestion
+is not one anybody would order. Multiviewer plugs belong to the chassis, not a card, so those
 demands are excluded from card selection and the stock config's MVR ports are
 carried over — otherwise the search buys an output card to serve a multiviewer
 that already has its own plugs.
@@ -163,7 +185,7 @@ very different things.
 ## Next
 
 1. **Aquilon mixer/slice verdicts**, once the slice rule is confirmed.
-2. **Barco Event Master card catalogue**, if a document with per-card connector
-   breakdowns turns up — that alone would extend loadout suggestions to four
-   more chassis.
-3. **Audio profile** for sound desks — the reason the core is generic.
+2. **Audio profile** for sound desks — the reason the core is generic.
+3. **Barco Tri-combo chassis** (E2 Tri-combo, S3 Tri-combo Gen 2) are now fully
+   documented as a side effect of reading their sheets for the card catalogue —
+   adding them is mostly data entry.

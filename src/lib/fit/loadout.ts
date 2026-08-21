@@ -21,7 +21,9 @@
  * Within a direction, loadouts are enumerated in increasing card count, so the
  * first feasible one found is minimal by construction. Among equals at the same
  * card count, fewer distinct card types wins — a build of four identical cards
- * is easier to order, stock and swap on site than one of four different ones.
+ * is easier to order, stock and swap on site than one of four different ones —
+ * and then the tightest fit, so a big multi-format card is not specified to
+ * carry one signal a small card would take.
  *
  * The chosen loadout is then run through the ordinary `evaluateConfig`, so pool
  * checks, caveats and the aux-layer rules all apply exactly as they do to a
@@ -126,7 +128,15 @@ function portsFromCards(cards: Card[], counts: number[], direction: 'in' | 'out'
   return ports
 }
 
-/** Fewest cards, then fewest distinct types, then most spare plugs. */
+/**
+ * Fewest cards, then fewest distinct card types, then the tightest fit.
+ *
+ * The last tiebreak used to prefer the *most* spare plugs, on the theory that
+ * headroom is free. It is not: it specified a six-connector Tri-combo card to
+ * carry one HDMI source, when a four-connector HDMI card does the same job for
+ * less money. "Smallest arrangement that fits" has to mean smallest, or the
+ * suggestion is not the one a person would actually order.
+ */
 function bestOf(
   candidates: { counts: number[]; ports: Port[]; spare: number }[],
 ): { counts: number[]; ports: Port[] } | null {
@@ -135,7 +145,7 @@ function bestOf(
     const at = a.counts.filter((n) => n > 0).length
     const bt = b.counts.filter((n) => n > 0).length
     if (at !== bt) return at - bt
-    return b.spare - a.spare
+    return a.ports.length - b.ports.length
   })[0]
 }
 

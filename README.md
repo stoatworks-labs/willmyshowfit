@@ -89,23 +89,36 @@ different set of cards would take it, so the tool searches for one and shows the
 smallest arrangement that does, with the wiring topology that follows from it.
 
 Loadouts are enumerated in increasing card count, so the first feasible one is
-minimal by construction; among equals, fewer distinct card types wins, because
-four identical cards are easier to order and swap on site than four different
-ones. The chosen loadout then goes through exactly the same evaluation as a
-stock profile — there is no second, looser notion of "fits".
+minimal by construction; among equals, fewer distinct card types wins (four
+identical cards are easier to order and swap on site than four different ones),
+then the tightest fit. The chosen loadout goes through exactly the same
+evaluation as a stock profile — there is no second, looser notion of "fits".
 
-The search is capability-aware rather than a plug count. Asked for five 1080p60
-HDMI sources it specifies one 8-plug HDMI 1.4 card rather than two 4-plug
-HDMI 2.0 ones, because the cheaper card carries the format.
+The search is capability-aware rather than a plug count, in both directions:
 
-**Only chassis that publish a card catalogue get this.** Barco's Event Master
-chassis carry slot counts but no per-card connector breakdown in the spec sheets
-this database is built from, so they are excluded and the page says why, rather
-than being filled in with plausible-looking inventions.
+- Five 1080p60 HDMI sources get one 8-plug HDMI 1.4 card, not two 4-plug
+  HDMI 2.0 ones, because the cheaper card carries the format.
+- One HDMI source gets a 4-connector HDMI card, not the 6-connector
+  multi-format card that happens to have an HDMI plug on it.
+- Six 2560x1600 outputs on an E2 Gen 1 get two Gen 2 HDMI 2.0 cards rather than
+  three Gen 1 ones, because a Gen 1 card has only *two* connectors fast enough
+  (see below) while a Gen 2 card has four.
 
 Slot-position rules are not modelled. Some vendors require particular cards in
-particular slots, so a proposal is a starting point to check against the
-vendor's own slot diagram, not an order form.
+particular slots, and Barco's Tri-combo cards are capped at 2x 4K60 regardless
+of having six connectors — so a proposal is a starting point to check against
+the vendor's own slot diagram, not an order form.
+
+### The four connectors on a card are not always equal
+
+Barco's Gen 1 HDMI output card has four connectors, and the top two run to
+297 MPix/s while the bottom two stop at 165. So an E2 Gen 1's eight HDMI outputs
+are really four that carry 2560x1600 and four that do not — and a show wanting
+six of them needs a different card, not just a spare slot.
+
+The chassis spec sheets quote only the 297 figure. The per-connector split is
+published on a different sheet entirely, for a different product. This tool had
+the optimistic reading until a loadout test disagreed with it.
 
 ## Import, export and reports
 

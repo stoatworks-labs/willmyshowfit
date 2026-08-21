@@ -16,7 +16,7 @@
  * of them.
  */
 
-import type { Pool, Port } from '../lib/model/types.ts'
+import type { Card, Pool, Port } from '../lib/model/types.ts'
 import type { VideoDevice } from '../lib/fit/evaluate.ts'
 import { CAP, run } from './ports.ts'
 
@@ -30,7 +30,261 @@ const URLS = {
   e2g1: 'https://assets.barco.com/m/753c2b29df077031/original/E2-en-Spec-sheet.pdf',
   e2g2: 'https://assets.barco.com/m/1da1a218bfbbede6/original/E2-Gen-2-en-Spec-sheet.pdf',
   e3: 'https://assets.barco.com/m/3dde766e9029e7f4/original/ENCORE3-en-Spec-sheet.pdf',
+  e2tri: 'https://assets.barco.com/m/3d46b7fb2bf0dda9/original/E2-Tri-combo-en-Spec-sheet.pdf',
+  s3tri: 'https://assets.barco.com/m/75c834964686437e/original/S3-Tri-combo-Gen-2-en-Spec-sheet.pdf',
 }
+
+// ===================================================== the card catalogue
+//
+// Barco does not publish a per-card connector table in the four chassis spec
+// sheets this file was built from — which is why loadout suggestions were
+// unavailable for Event Master at first. The **Tri-combo** sheets do publish
+// it, in passing, while describing their own pre-loaded configurations:
+//
+//   "40 inputs via 8 input cards (HDMI/DP combo 4 inputs, Tri-combo 6 inputs
+//    per card)"                                                  — E2 Tri-combo
+//   "TriCombo output card supports 4 x SD/HD/3G/6G/12G 1x HDMI 2.0, and
+//    1x DisplayPort 1.2 connectors"                              — E2 Tri-combo
+//   "14 FHD@60 inputs via 3 input cards (DP1.2 and HDMI 2.0 4 inputs ea,
+//    Tri-combo 6 inputs)"                                — S3 Tri-combo Gen 2
+//
+// Those three statements pin the Gen 2 cards outright, and the Gen 1 cards
+// fall out of chassis arithmetic that reconciles exactly on three different
+// chassis — see the note on each card. Where a card is arithmetic rather than
+// print, it says `inferred`.
+
+/** Two connectors on one card with different ceilings — a real Barco quirk. */
+const hdmi14Asym = (fast: boolean): Port['cap'] => CAP.hdmi14(fast ? 297e6 : 165e6)
+
+const BEM_GEN1_CARDS: Card[] = [
+  {
+    id: 'bem-in-sdi-quad-g1',
+    label: '4x 3G-SDI input card (Gen 1)',
+    slot: 'input',
+    ports: Array.from({ length: 4 }, () => ({
+      kind: 'sdi' as const,
+      label: '3G-SDI',
+      direction: 'in' as const,
+      cap: CAP.sdi3g(),
+    })),
+    provenance: {
+      confidence: 'inferred',
+      citations: [
+        cite(
+          'E2 Gen 1: "32 inputs via 8 input cards … 12 x SD/HD/3G SDI, 10 x HDMI 1.4a, 10 x DisplayPort 1.1"',
+          'Barco, E2 spec sheet, "Video inputs"',
+          URLS.e2g1,
+        ),
+      ],
+      notes: [
+        'Four SDI per card is arithmetic, not print: 12 SDI over 3 cards plus 10 HDMI and 10 DP over 5 combo cards is exactly the 8 input cards the sheet states. No other split of those 32 inputs across 8 cards works.',
+      ],
+    },
+  },
+  {
+    id: 'bem-in-hdmi-dp-combo-g1',
+    label: '2x HDMI 1.4a + 2x DP 1.1 combo input card (Gen 1)',
+    slot: 'input',
+    ports: [
+      { kind: 'hdmi' as const, label: 'HDMI 1.4a', direction: 'in' as const, cap: CAP.hdmi14(297e6) },
+      { kind: 'hdmi' as const, label: 'HDMI 1.4a', direction: 'in' as const, cap: CAP.hdmi14(297e6) },
+      { kind: 'displayport' as const, label: 'DisplayPort 1.1', direction: 'in' as const, cap: CAP.dp11(300e6) },
+      { kind: 'displayport' as const, label: 'DisplayPort 1.1', direction: 'in' as const, cap: CAP.dp11(300e6) },
+    ],
+    provenance: {
+      confidence: 'inferred',
+      citations: [
+        cite(
+          '"40 inputs via 8 input cards (HDMI/DP combo 4 inputs, Tri-combo 6 inputs per card)" and "Up to 12x 4K inputs — (HDMI/DP combo 1x 4K@60p, Tri-Combo 2x 4K@60p per card)"',
+          'Barco, E2 Tri-combo spec sheet, "Video inputs"',
+          URLS.e2tri,
+        ),
+      ],
+      notes: [
+        'Barco names this card and states it carries four inputs, but not the 2+2 split. That split is forced by the chassis totals: the E2 Tri-combo lists 8x HDMI 1.4a and 8x DP 1.1 across four of these cards.',
+      ],
+    },
+  },
+  {
+    id: 'bem-out-sdi-quad-g1',
+    label: '4x 3G-SDI output card (Gen 1)',
+    slot: 'output',
+    ports: Array.from({ length: 4 }, () => ({
+      kind: 'sdi' as const,
+      label: '3G-SDI',
+      direction: 'out' as const,
+      cap: CAP.sdi3g(),
+      roles: ['program', 'aux'] as Port['roles'],
+    })),
+    provenance: {
+      confidence: 'inferred',
+      citations: [
+        cite(
+          'E2 Gen 1: "14 outputs via 4 output cards … 4 x SD/HD/3G SDI, 8 x HDMI 1.4a, 2 x HDMI 1.4a for Multiviewer"',
+          'Barco, E2 spec sheet, "Video outputs"',
+          URLS.e2g1,
+        ),
+      ],
+      notes: ['Four per card, matching the input side and the chassis totals.'],
+    },
+  },
+  {
+    id: 'bem-out-hdmi14-quad-g1',
+    label: '4x HDMI 1.4a output card (Gen 1)',
+    slot: 'output',
+    ports: [
+      // ☠️ The four connectors on this card are NOT equal. Barco: "The top two
+      // connectors of the card support up to 297 MPix/sec (2560x1600 typical).
+      // The bottom two connectors support 165 MPix/sec (1920x1200 typical)."
+      // Modelling all four at 297 would claim two outputs the card has not got.
+      { kind: 'hdmi' as const, label: 'HDMI 1.4a (top, 297 MPix/s)', direction: 'out' as const, cap: hdmi14Asym(true), roles: ['program', 'aux'] as Port['roles'] },
+      { kind: 'hdmi' as const, label: 'HDMI 1.4a (top, 297 MPix/s)', direction: 'out' as const, cap: hdmi14Asym(true), roles: ['program', 'aux'] as Port['roles'] },
+      { kind: 'hdmi' as const, label: 'HDMI 1.4a (bottom, 165 MPix/s)', direction: 'out' as const, cap: hdmi14Asym(false), roles: ['program', 'aux'] as Port['roles'] },
+      { kind: 'hdmi' as const, label: 'HDMI 1.4a (bottom, 165 MPix/s)', direction: 'out' as const, cap: hdmi14Asym(false), roles: ['program', 'aux'] as Port['roles'] },
+    ],
+    provenance: {
+      confidence: 'documented',
+      citations: [
+        cite(
+          '"3x HDMI 1.4a output cards support 4 HDMI connectors each. The top two connectors of the card support up to 297 MPix/sec (2560x1600 typical). The bottom two connectors support 165 MPix/sec (1920x1200 typical)."',
+          'Barco, E2 Tri-combo spec sheet, "Video outputs"',
+          URLS.e2tri,
+        ),
+      ],
+      notes: [
+        'The four connectors are not equal, and it matters: a show wanting four 2560x1600 outputs needs two of these cards, not one.',
+      ],
+    },
+  },
+]
+
+const BEM_GEN2_CARDS: Card[] = [
+  {
+    id: 'bem-in-tricombo-g2',
+    label: '4K60 Tri-combo input card (Gen 2)',
+    slot: 'input',
+    ports: [
+      ...Array.from({ length: 4 }, () => ({
+        kind: 'sdi' as const,
+        label: '12G-SDI',
+        direction: 'in' as const,
+        cap: CAP.sdi12g(),
+      })),
+      { kind: 'hdmi' as const, label: 'HDMI 2.0', direction: 'in' as const, cap: CAP.hdmi20() },
+      { kind: 'displayport' as const, label: 'DisplayPort 1.2', direction: 'in' as const, cap: CAP.dp12() },
+    ],
+    provenance: {
+      confidence: 'documented',
+      citations: [
+        cite(
+          '"Tri-combo 6 inputs per card" and "TriCombo output card supports 4 x SD/HD/3G/6G/12G 1x HDMI 2.0, and 1x DisplayPort 1.2 connectors"; the S3 Tri-combo Gen 2 sheet lists "4x SD/HD/3G/6G/12G SDI connectors (Tri-Combo card)"',
+          'Barco, E2 Tri-combo and S3 Tri-combo Gen 2 spec sheets',
+          URLS.e2tri,
+        ),
+      ],
+      notes: [
+        'Six connectors, but Barco caps the card at 2x 4K@60p — so all six cannot be 4K at once. This tool counts the plugs and does not model that cap; check it by hand on a 4K-heavy build.',
+      ],
+    },
+  },
+  {
+    id: 'bem-in-hdmi20-quad-g2',
+    label: '4x HDMI 2.0 input card (Gen 2)',
+    slot: 'input',
+    ports: Array.from({ length: 4 }, () => ({
+      kind: 'hdmi' as const,
+      label: 'HDMI 2.0',
+      direction: 'in' as const,
+      cap: CAP.hdmi20(),
+    })),
+    provenance: {
+      confidence: 'documented',
+      citations: [
+        cite(
+          '"14 FHD@60 inputs via 3 input cards (DP1.2 and HDMI™ 2.0 4 inputs ea, Tri-combo 6 inputs)"',
+          'Barco, S3 Tri-combo Gen 2 spec sheet, "Video inputs"',
+          URLS.s3tri,
+        ),
+      ],
+      notes: [],
+    },
+  },
+  {
+    id: 'bem-in-dp12-quad-g2',
+    label: '4x DisplayPort 1.2 input card (Gen 2)',
+    slot: 'input',
+    ports: Array.from({ length: 4 }, () => ({
+      kind: 'displayport' as const,
+      label: 'DisplayPort 1.2',
+      direction: 'in' as const,
+      cap: CAP.dp12(600e6),
+    })),
+    provenance: {
+      confidence: 'documented',
+      citations: [
+        cite(
+          '"14 FHD@60 inputs via 3 input cards (DP1.2 and HDMI™ 2.0 4 inputs ea, Tri-combo 6 inputs)"',
+          'Barco, S3 Tri-combo Gen 2 spec sheet, "Video inputs"',
+          URLS.s3tri,
+        ),
+      ],
+      notes: [],
+    },
+  },
+  {
+    id: 'bem-out-tricombo-g2',
+    label: '4K60 Tri-combo output card (Gen 2)',
+    slot: 'output',
+    ports: [
+      ...Array.from({ length: 4 }, () => ({
+        kind: 'sdi' as const,
+        label: '12G-SDI',
+        direction: 'out' as const,
+        cap: CAP.sdi12g(),
+        roles: ['program', 'aux'] as Port['roles'],
+      })),
+      { kind: 'hdmi' as const, label: 'HDMI 2.0', direction: 'out' as const, cap: CAP.hdmi20(), roles: ['program', 'aux'] as Port['roles'] },
+      { kind: 'displayport' as const, label: 'DisplayPort 1.2', direction: 'out' as const, cap: CAP.dp12(), roles: ['program', 'aux'] as Port['roles'] },
+    ],
+    provenance: {
+      confidence: 'documented',
+      citations: [
+        cite(
+          '"TriCombo output card supports 4 x SD/HD/3G/6G/12G 1x HDMI 2.0, and 1x DisplayPort 1.2 connectors" and "Tri-combo supports 2 4K60p or 6 HD"',
+          'Barco, E2 Tri-combo spec sheet, "Video outputs"',
+          URLS.e2tri,
+        ),
+      ],
+      notes: ['Six connectors, capped at 2x 4K60p — the plug count is not the 4K count.'],
+    },
+  },
+  {
+    id: 'bem-out-hdmi20-quad-g2',
+    label: '4x HDMI 2.0 output card (Gen 2)',
+    slot: 'output',
+    ports: Array.from({ length: 4 }, () => ({
+      kind: 'hdmi' as const,
+      label: 'HDMI 2.0',
+      direction: 'out' as const,
+      cap: CAP.hdmi20(),
+      roles: ['program', 'aux'] as Port['roles'],
+    })),
+    provenance: {
+      confidence: 'documented',
+      citations: [
+        cite(
+          '"14x FHD@60 /12x 4K@30 / 6x 4K@60 outputs via 3 output cards (HDMI™ 2.0 4 outputs ea, Tri-combo 6 outputs)"; "HDMI output card supports 1 4K60p or 4 HD"',
+          'Barco, S3 Tri-combo Gen 2 and E2 Tri-combo spec sheets, "Video outputs"',
+          URLS.s3tri,
+        ),
+      ],
+      notes: ['Four HD outputs or one 4K60 — the plug count is not the 4K count.'],
+    },
+  },
+]
+
+/** Gen 2 cards drop into the Gen 1 chassis too; the reverse is not true of E3. */
+const BEM_ALL_CARDS: Card[] = [...BEM_GEN1_CARDS, ...BEM_GEN2_CARDS]
 
 /** Barco's layer ladder, in 4K-mixable-layer units. */
 const EM_LAYER_CLASSES = [
@@ -91,14 +345,23 @@ const s3Ports: Port[] = [
     cardId: 'out-1',
     roles: ['program', 'aux'],
   }),
-  ...run('OUT-HDMI', 'hdmi', 'HDMI 1.4a', CAP.hdmi14(297e6), 4, 'out', {
+  // Same Gen 1 quad output card as the E2: two fast connectors, two slow.
+  ...run('OUT-HDMI', 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', {
+    cardId: 'out-2',
+    roles: ['program', 'aux'],
+  }),
+  ...run('OUT-HDMI-B', 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', {
     cardId: 'out-2',
     roles: ['program', 'aux'],
   }),
   // Third output card: two plugs as a dedicated multiviewer, or four as a
   // standard output card. Modelled as four plugs that will do either job, with
   // the trade-off called out in the caveats.
-  ...run('OUT-AUX', 'hdmi', 'HDMI 1.4a', CAP.hdmi14(297e6), 4, 'out', {
+  ...run('OUT-AUX', 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', {
+    cardId: 'out-3',
+    roles: ['program', 'aux', 'multiviewer'],
+  }),
+  ...run('OUT-AUX-B', 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', {
     cardId: 'out-3',
     roles: ['program', 'aux', 'multiviewer'],
   }),
@@ -111,6 +374,7 @@ const S3_STANDALONE: VideoDevice = {
   model: 'S3 standalone (NGS-3U)',
   profile: 'video',
   slots: { input: 3, output: 3, either: 0 },
+  availableCards: BEM_ALL_CARDS,
   configs: [
     {
       id: 'stock',
@@ -160,6 +424,7 @@ const S3_STANDALONE: VideoDevice = {
   caveats: [
     'The third output card is either 2x HDMI dedicated to the multiviewer or 4x HDMI as a standard output — you cannot have both. If this show uses all twelve outputs, it has no multiviewer.',
     'Every input card here is HD-class: the S3 standalone takes up to 3x 4K inputs only by combining plugs, not on a single connector.',
+    'The HDMI outputs are not interchangeable. On each Gen 1 quad output card the top two connectors run to 297 MPix/s and the bottom two only to 165, so half the HDMI outputs will not carry 2560x1600.',
   ],
   provenance: {
     confidence: 'documented',
@@ -183,6 +448,7 @@ const E2_GEN1: VideoDevice = {
   model: 'E2 Gen 1 (NGS-4U)',
   profile: 'video',
   slots: { input: 8, output: 4, either: 0 },
+  availableCards: BEM_ALL_CARDS,
   configs: [
     {
       id: 'stock',
@@ -193,7 +459,24 @@ const E2_GEN1: VideoDevice = {
         ...run('IN-HDMI', 'hdmi', 'HDMI 1.4a', CAP.hdmi14(297e6), 10, 'in'),
         ...run('IN-DP', 'displayport', 'DisplayPort 1.1', CAP.dp11(330e6), 10, 'in'),
         ...run('OUT-SDI', 'sdi', '3G-SDI', CAP.sdi3g(), 4, 'out', { roles: ['program', 'aux'] }),
-        ...run('OUT-HDMI', 'hdmi', 'HDMI 1.4a', CAP.hdmi14(297e6), 8, 'out', {
+        // ☠️ NOT eight equal plugs. These come from two Gen 1 quad output
+        // cards, and Barco rates each card's top two connectors at 297 MPix/s
+        // and its bottom two at 165. Modelling all eight at 297 claims four
+        // 2560x1600 outputs the chassis has not got.
+        ...run('OUT-HDMI', 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', {
+          cardId: 'out-2',
+          roles: ['program', 'aux'],
+        }),
+        ...run('OUT-HDMI-B', 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', {
+          cardId: 'out-2',
+          roles: ['program', 'aux'],
+        }),
+        ...run('OUT-HDMI-C', 'hdmi', 'HDMI 1.4a (297 MPix/s)', CAP.hdmi14(297e6), 2, 'out', {
+          cardId: 'out-3',
+          roles: ['program', 'aux'],
+        }),
+        ...run('OUT-HDMI-D', 'hdmi', 'HDMI 1.4a (165 MPix/s)', CAP.hdmi14(165e6), 2, 'out', {
+          cardId: 'out-3',
           roles: ['program', 'aux'],
         }),
         ...run('MVR', 'hdmi', 'HDMI 1.4a (Multiviewer)', CAP.hdmi14(297e6), 2, 'out', {
@@ -243,6 +526,7 @@ const E2_GEN1: VideoDevice = {
   caveats: [
     'E2 Gen 1 is an HD-plug chassis: its HDMI is 1.4a at 297 MHz and its DisplayPort is 1.1. A single-cable 4K60 source will not go into it — 4K arrives as 2 or 4 cables, and the sheet caps the chassis at 8x 4K inputs and 3x 4K outputs however they are wired.',
     "Barco's own E2 Gen 1 spec sheet duplicates the Scaled Aux text into its Mixers row, so that row says nothing about layers. The layer figures here come from the separate \"PIP layers (per chassis)\" section instead.",
+    'The eight HDMI outputs are not interchangeable: on each quad output card the top two connectors run to 297 MPix/s and the bottom two only to 165. Four of the eight will not carry 2560x1600. The chassis spec sheet quotes only the 297 figure; the per-connector split is on the Tri-combo sheet.',
   ],
   provenance: {
     confidence: 'documented',
@@ -266,6 +550,7 @@ const E2_GEN2: VideoDevice = {
   model: 'E2 Gen 2 (NGS-4U-V2)',
   profile: 'video',
   slots: { input: 8, output: 4, either: 0 },
+  availableCards: BEM_ALL_CARDS,
   configs: [
     {
       id: 'stock',
@@ -360,6 +645,9 @@ const E3: VideoDevice = {
   model: 'ENCORE3 (E3)',
   profile: 'video',
   slots: { input: 7, output: 4, either: 0 },
+  // ENCORE3 takes Gen 2 cards only: "Up to 7 input capable card slots to
+  // occupy with Event Master Gen2 cards".
+  availableCards: BEM_GEN2_CARDS,
   configs: [
     {
       id: 'standard',

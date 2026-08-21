@@ -87,6 +87,35 @@ describe('custom card loadouts', () => {
     expect(slotsUsed.output).toBeLessThanOrEqual(slotsAvailable.output + slotsAvailable.either)
   })
 
+  it('specifies the smallest card that does the job, not the most capable', () => {
+    // One HDMI source: a four-connector HDMI card, not a six-connector
+    // multi-format one that happens to have an HDMI plug on it.
+    const d = byId('barco-e2-gen1')
+    const show: Show = {
+      ...emptyShow(),
+      sources: [{ id: 's', name: 'PC', connector: 'hdmi', count: 1, format: HD }],
+      screens: [
+        screen({
+          canvas: { hActive: 2560, vActive: 1600, refreshHz: 60 },
+          destinations: [
+            {
+              id: 'd',
+              name: 'Big display',
+              format: { hActive: 2560, vActive: 1600, refreshHz: 60, bpc: 8, sampling: 'rgb444' },
+              connector: 'hdmi',
+              count: 6,
+            },
+          ],
+        }),
+      ],
+    }
+    const out = proposeLoadout(d, show)
+    if (out.kind !== 'proposed') return
+    const inCard = out.proposal.inputCards[0]
+    expect(inCard.count).toBe(1)
+    expect(inCard.card.ports.length).toBeLessThanOrEqual(4)
+  })
+
   it('prefers one card type over a mixture when both fit in the same slot count', () => {
     const d = byId('aw-aquilon-rs4')
     const out = proposeLoadout(d, sdiHeavyShow())
@@ -122,13 +151,86 @@ describe('custom card loadouts', () => {
     expect(out.kind).toBe('no-loadout-fits')
   })
 
-  it('does not invent cards for a chassis whose catalogue is not published', () => {
-    for (const id of ['barco-e2-gen2', 'barco-encore3', 'barco-s3-standalone']) {
-      const d = byId(id)
-      const why = whyNoLoadout(d)
-      expect(why, `${id} should be excluded`).toMatch(/not a per-card connector breakdown/)
-      expect(proposeLoadout(d, sdiHeavyShow()).kind).toBe('not-supported')
+  it('searches the Event Master chassis now their card catalogue is known', () => {
+    for (const id of ['barco-e2-gen1', 'barco-e2-gen2', 'barco-encore3', 'barco-s3-standalone']) {
+      expect(whyNoLoadout(byId(id)), `${id} should be searchable`).toBeNull()
     }
+  })
+
+  it('offers ENCORE3 only Gen 2 cards, which is all it takes', () => {
+    const d = byId('barco-encore3')
+    const ids = (d.availableCards ?? []).map((c) => c.id)
+    expect(ids.every((i) => i.endsWith('-g2'))).toBe(true)
+    expect(ids.some((i) => i.endsWith('-g1'))).toBe(false)
+  })
+
+  /**
+   * The four HDMI connectors on a Gen 1 output card are not equal: Barco rates
+   * the top two at 297 MPix/s and the bottom two at 165. A model that treated
+   * the card as four equal plugs would claim twice the 2560x1600 capability
+   * the chassis has.
+   */
+  it('models the Gen 1 output card as two fast connectors and two slow', () => {
+    const stock = byId('barco-e2-gen1').configs.find((c) => c.stock)!
+    // Program outputs only — the two multiviewer plugs are a separate card.
+    const hdmiOut = stock.ports.filter(
+      (p) => p.direction === 'out' && p.kind === 'hdmi' && p.roles?.includes('program'),
+    )
+    const fast = hdmiOut.filter((p) => p.cap.maxPixelRateHz === 297e6)
+    const slow = hdmiOut.filter((p) => p.cap.maxPixelRateHz === 165e6)
+    // Eight HDMI outputs on two quad cards: four fast, four slow, not eight fast.
+    expect(fast).toHaveLength(4)
+    expect(slow).toHaveLength(4)
+  })
+
+  it('reaches for Gen 2 cards when they solve a Gen 1 chassis in fewer slots', () => {
+    const d = byId('barco-e2-gen1')
+    const wxga = { hActive: 2560, vActive: 1600, refreshHz: 60, bpc: 8 as const, sampling: 'rgb444' as const }
+    const show: Show = {
+      ...emptyShow(),
+      sources: [{ id: 's', name: 'PC', connector: 'hdmi', count: 1, format: HD }],
+      screens: [
+        screen({
+          canvas: { hActive: 2560, vActive: 1600, refreshHz: 60 },
+          destinations: [{ id: 'd', name: 'Big display', format: wxga, connector: 'hdmi', count: 6 }],
+        }),
+      ],
+    }
+    // Stock has only four connectors fast enough, so it must miss.
+    expect(evaluateConfig(d, d.configs.find((c) => c.stock)!, show).verdict).toBe('does-not-fit')
+
+    const out = proposeLoadout(d, show)
+    expect(out.kind).toBe('proposed')
+    if (out.kind !== 'proposed') return
+
+    // Gen 2 cards drop into a Gen 1 chassis, and two HDMI 2.0 quad cards give
+    // eight full-rate outputs — better than the three Gen 1 cards it would
+    // take, since each of those contributes only two fast connectors.
+    const g2 = out.proposal.outputCards.find((c) => c.card.id === 'bem-out-hdmi20-quad-g2')
+    expect(g2?.count).toBe(2)
+    expect(out.proposal.outputCards).toHaveLength(1)
+
+    // Every 2560x1600 feed lands somewhere that carries it.
+    const outs = out.proposal.result.ports.assignments.filter((a) => a.demand.direction === 'out')
+    expect(outs).toHaveLength(6)
+    expect(outs.every((a) => a.port.cap.maxPixelRateHz >= 268.5e6)).toBe(true)
+  })
+
+  it('reaches for a Tri-combo card when a show wants SDI and a little of everything', () => {
+    const d = byId('barco-e2-gen2')
+    const show: Show = {
+      ...emptyShow(),
+      sources: [
+        { id: 'cam', name: 'Cameras', connector: 'sdi', count: 20, format: HD_SDI },
+      ],
+      screens: [screen()],
+    }
+    const out = proposeLoadout(d, show)
+    if (out.kind !== 'proposed') return
+    const sdiPlugs = out.proposal.config.ports.filter(
+      (p) => p.direction === 'in' && p.kind === 'sdi',
+    ).length
+    expect(sdiPlugs).toBeGreaterThanOrEqual(20)
   })
 
   it('says a fixed-connector switcher has no cards to choose', () => {
