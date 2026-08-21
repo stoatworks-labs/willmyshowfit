@@ -92,7 +92,10 @@ switcher to solve are one screen, one raster and two keys.
 ## Devices
 
 **Analog Way** — Midra 4K (QuickVu, QuickMatrix, Pulse, Eikos, each mode checked
-separately), Alta 4K (Zenith 100/200), LivePremier (Aquilon RS alpha, RS1–RS6).
+separately), Alta 4K (Zenith 100/200), LivePremier (Aquilon RS alpha, RS1–RS6),
+and the two discontinued lines that are still all over the rental market:
+**Midra** pre-4K (QuickVu 3G, QuickMatriX, Pulse², SmartMatriX², Saphyr, Eikos²)
+and **LiveCore** (NeXtage 08/16 - 4K, Ascender 16/32/48 - 4K, SmartMatriX Ultra).
 **Barco** — S3 standalone, E2 Gen 1, E2 Gen 2, ENCORE3.
 **PixelHue** — F4, F8.
 **Roland** — V-160HD, VR-400UHD, V-600UHD.
@@ -101,6 +104,15 @@ separately), Alta 4K (Zenith 100/200), LivePremier (Aquilon RS alpha, RS1–RS6)
 Card-based chassis are profiled against their stock loadout **and**, where the
 chassis misses, searched for a card loadout that would take the show — see
 below.
+
+Two things the older lines make visible that the current ones do not. A pre-4K
+Midra has **no edge blending at all** — soft edge arrived with Midra 4K — so a
+screen there has to fit on one output, which is a different answer from "you
+have run out of plugs" and is reported as one. And the whole Midra platform is
+a **165 MHz single-link machine**: 1080p60 and 1920x1200 fit, 2560x1600 and
+anything 4K do not, in any mode. LiveCore stops at 4K30; to check a 4K60 display
+against one, describe it as a destination fed by four cables and the tool sizes
+the quadrants.
 
 ## Custom card loadouts
 

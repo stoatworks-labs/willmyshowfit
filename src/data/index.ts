@@ -14,12 +14,14 @@
 
 import type { VideoDevice } from '../lib/fit/evaluate.ts'
 import { ANALOG_WAY_DEVICES } from './analogway.ts'
+import { ANALOG_WAY_LEGACY_DEVICES } from './analogway-legacy.ts'
 import { BARCO_DEVICES } from './barco.ts'
 import { PIXELHUE_DEVICES } from './pixelhue.ts'
 import { VISION_MIXER_DEVICES } from './visionmixers.ts'
 
 export const DEVICES: VideoDevice[] = [
   ...ANALOG_WAY_DEVICES,
+  ...ANALOG_WAY_LEGACY_DEVICES,
   ...BARCO_DEVICES,
   ...PIXELHUE_DEVICES,
   ...VISION_MIXER_DEVICES,
@@ -31,6 +33,7 @@ export const DEVICES: VideoDevice[] = [
  * them as two sections.
  */
 export function deviceClass(d: VideoDevice): 'screen-management' | 'vision-mixer' {
+  if (d.rules.category) return d.rules.category
   return d.rules.edgeBlending === false ? 'vision-mixer' : 'screen-management'
 }
 

@@ -4,7 +4,7 @@ import { cvtRbV2, requirementFor, sdiClassFor, timingFor } from '../model/signal
 import { expandToPlugs, matchPorts, resourcesOf } from '../fit/solve.ts'
 import { evaluateAll, evaluateConfig, type VideoDevice } from '../fit/evaluate.ts'
 import { costLayer, emptyShow, type Show, type ShowScreen } from '../profiles/video.ts'
-import { DEVICES } from '../../data/index.ts'
+import { DEVICES, deviceClass } from '../../data/index.ts'
 import { CAP, mirrored, run, selectOne } from '../../data/ports.ts'
 
 // ------------------------------------------------------------------ signal
@@ -310,6 +310,10 @@ function smallShow(): Show {
   }
 }
 
+/** 1920x1080p60, which every device in the database can carry. */
+const HD_2K = { hActive: 1920, vActive: 1080, refreshHz: 60, bpc: 8, sampling: 'rgb444' } as const
+const HD_SDI_2K = { ...HD_2K, bpc: 10, sampling: 'ycbcr422' } as const
+
 const byId = (id: string): VideoDevice => {
   const d = DEVICES.find((x) => x.id === id)
   if (!d) throw new Error(`no device ${id}`)
@@ -606,5 +610,147 @@ describe('the LivePremier wide-screen layer penalty', () => {
     // Barco and PixelHue do not publish a scaling-engine boundary, so a wide
     // screen costs them exactly what a narrow one does.
     expect(layersUsed('barco-e2-gen2', blend(8, 4))).toBe(layersUsed('barco-e2-gen2', blend(2, 4)))
+  })
+})
+
+// ------------------------------------------- the legacy Analog Way platforms
+
+describe('Midra (pre-4K) and LiveCore', () => {
+  /** One screen delivered on `plugs` outputs, with `layers` HD layers on it. */
+  function screenOn(plugs: number, layers: number): Show {
+    return {
+      ...emptyShow(),
+      sources: [
+        { id: 'src', name: 'Laptops', connector: 'hdmi', count: 2, format: HD_2K },
+      ],
+      screens: [
+        {
+          id: 'sc',
+          name: 'Main',
+          canvas: { hActive: 1920 * plugs, vActive: 1080, refreshHz: 60 },
+          liveBackground: false,
+          layers: Array.from({ length: layers }, (_, i) => ({
+            id: `l${i}`,
+            name: `Layer ${i + 1}`,
+            kind: 'mixing' as const,
+            format: HD_2K,
+          })),
+          destinations: [
+            { id: 'd', name: 'Screen', connector: 'dvi', count: plugs, format: HD_2K },
+          ],
+        },
+      ],
+    }
+  }
+
+  it('will not blend a screen across two outputs on a pre-4K Midra', () => {
+    // Soft edge arrived with Midra 4K. A Saphyr has two outputs and no way to
+    // make one picture out of them, which is the commonest reason a modern show
+    // misses one — and it is nothing to do with running out of plugs.
+    const d = byId('aw-midra-saphyr')
+    const r = evaluateConfig(d, d.configs[0], screenOn(2, 1))
+    expect(r.verdict).toBe('does-not-fit')
+    expect(r.blockers.join(' ')).toMatch(/no edge blending/)
+  })
+
+  it('still ranks a pre-4K Midra as a screen-management system, not a vision mixer', () => {
+    // It has freely placed, resized, cross-faded layers. "Cannot blend" and
+    // "is a vision mixer" are different claims and were the same flag once.
+    expect(deviceClass(byId('aw-midra-eikos2'))).toBe('screen-management')
+  })
+
+  it('caps every Midra plug at the platform 165 MHz, in every mode', () => {
+    const d = byId('aw-midra-eikos2')
+    for (const c of d.configs) {
+      for (const p of c.ports) {
+        if (p.kind === 'sdi') continue
+        expect(p.cap.maxPixelRateHz, `${d.model} / ${c.label} / ${p.id}`).toBeLessThanOrEqual(165e6)
+      }
+    }
+  })
+
+  it('counts a Midra input as one resource however many sockets it has', () => {
+    // Input 3 is a DVI-D and an HDMI socket, one of which may be live. Counting
+    // sockets turns an eight-input Pulse2 into a ten-input machine.
+    const d = byId('aw-midra-pulse2')
+    const resources = resourcesOf(d.configs[0])
+    expect(resources.filter((r) => r.direction === 'in').length).toBe(8)
+  })
+
+  it('gives Quadravision the layers that Eikos2 mixer mode does not have', () => {
+    const d = byId('aw-midra-eikos2')
+    const r = evaluateAll([d], screenOn(1, 4))[0]
+    expect(r.best.verdict).toBe('fits')
+    expect(r.best.config.id).toBe('quadravision')
+  })
+
+  it('holds LiveCore to 4K30, so a 4K60 source misses it on the link rate', () => {
+    // "Input formats up to Dual Link 60hz 4:4:4 or 4k30hz 4:4:4". The DP plug
+    // is a 4-lane DP 1.2 that could carry 4K60; the processing behind it
+    // cannot, and quoting the interface would promise capability that is
+    // not there.
+    const d = byId('aw-livecore-ascender48')
+    const show: Show = {
+      ...emptyShow(),
+      sources: [
+        {
+          id: 'src',
+          name: '4K server',
+          connector: 'displayport',
+          count: 1,
+          format: { hActive: 3840, vActive: 2160, refreshHz: 60, bpc: 8, sampling: 'rgb444' },
+        },
+      ],
+      screens: screenOn(1, 1).screens,
+    }
+    const r = evaluateConfig(d, d.configs[0], show)
+    expect(r.verdict).toBe('does-not-fit')
+    expect(r.blockers.join(' ')).toMatch(/4K server/)
+  })
+
+  it('caps a LiveCore at its seamless input count, not its 42 sockets', () => {
+    // 12 seamless inputs over 42 plugs. Listing all the plugs and capping the
+    // pool is right in both directions; a fixed mix of twelve would reject a
+    // show the chassis takes.
+    const d = byId('aw-livecore-ascender32')
+    const many: Show = {
+      ...emptyShow(),
+      sources: [{ id: 's', name: 'Cameras', connector: 'sdi', count: 14, format: HD_SDI_2K }],
+      screens: screenOn(1, 1).screens,
+    }
+    const r = evaluateConfig(d, d.configs[0], many)
+    expect(r.verdict).toBe('does-not-fit')
+    expect(r.blockers.join(' ')).toMatch(/Seamless inputs/)
+  })
+
+  it('puts a 4K display on an even-numbered LiveCore output only', () => {
+    // Outputs 1 and 3 are DVI Dual-Link; 2 and 4 carry 4K30 through the DVI
+    // shell. Two 4K screens fit an Ascender; three do not.
+    const d = byId('aw-livecore-ascender48')
+    const uhd30 = { hActive: 3840, vActive: 2160, refreshHz: 30, bpc: 8, sampling: 'rgb444' } as const
+    const screens = (n: number): ShowScreen[] =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `s${i}`,
+        name: `Screen ${i + 1}`,
+        canvas: { hActive: 3840, vActive: 2160, refreshHz: 30 },
+        liveBackground: false,
+        layers: [],
+        destinations: [
+          { id: `d${i}`, name: 'LED', connector: 'hdmi' as const, count: 1, format: uhd30 },
+        ],
+      }))
+    expect(evaluateConfig(d, d.configs[0], { ...emptyShow(), screens: screens(2) }).verdict)
+      .toBe('fits')
+    expect(evaluateConfig(d, d.configs[0], { ...emptyShow(), screens: screens(3) }).verdict)
+      .toBe('does-not-fit')
+  })
+
+  it('badges the SmartMatriX Ultra as unverified, because no vendor document was found', () => {
+    // Every other device in the database is cited to an Analog Way, Barco,
+    // PixelHue, Roland or Blackmagic document. This one is not, and the UI has
+    // to be able to say so.
+    const d = byId('aw-livecore-smartmatrix-ultra')
+    expect(d.provenance.confidence).toBe('unverified')
+    expect(d.provenance.notes.length).toBeGreaterThan(0)
   })
 })

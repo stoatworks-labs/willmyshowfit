@@ -19,6 +19,8 @@ src/lib/topology/propose.ts a fit turned into a patch list
 src/lib/io/xml.ts           save/load
 src/lib/report/html.ts      the report, one generator for screen and file
 src/data/*.ts               the device database
+                            (analogway.ts = the current lines,
+                             analogway-legacy.ts = Midra pre-4K + LiveCore)
 src/ui/*.tsx                React, no framework beyond it
 ```
 
@@ -103,9 +105,16 @@ thing standing between a show name and the DOM. It emits no scripts.
 4. Every device's `layerCosting.poolId` names a pool that config actually has.
 5. Layer class ladders are monotonic — a bigger class never costs less.
 
+**"Cannot edge-blend" and "is a vision mixer" are two different claims.**
+`VideoRules.edgeBlending: false` blocks a screen spanning more than one output;
+`VideoRules.category` decides which section it is ranked in. They were one flag
+until the pre-4K Midra arrived — a presentation switcher with freely placed
+layers and no soft edge, which needs one answer to each. `deviceClass()` prefers
+`category` and falls back to reading `edgeBlending`, so nothing else moved.
+
 ## Verified vs assumed
 
-**Verified:** the engine. 73 tests cover the signal maths against published
+**Verified:** the engine. 82 tests cover the signal maths against published
 timings, mirror/select collapsing, the matching (including the four-SDI-sources
 case a count gets wrong), dual-cable rate splitting, adapter selection, layer
 costing, all four pool scopes, the aux-layer rule per vendor, the vision-mixer
@@ -116,6 +125,16 @@ failure, and that it refuses to invent cards for chassis without a catalogue).
 
 - **All device data is vendor paperwork.** No hardware has been connected. No
   show has been built from a topology this tool produced.
+- **The SmartMatriX Ultra is `unverified` throughout** — the only device in the
+  database with no vendor document behind it. Analog Way's archived product page
+  has had its downloads removed; the input figures come from a trade-press
+  listing, the output plug mix is assumed to be the Ascender's board, and no
+  layer count is published anywhere this could be found. Do not quietly promote
+  it because the numbers look plausible beside its siblings.
+- **The Universal Analog plugs on every Midra and LiveCore are not modelled.**
+  There is no analog-video `ConnectorKind`, so those four-to-twelve plugs per
+  device are simply absent and the counts here sit below the vendor headline.
+  The vendors' own digital-plug subtotals are what is modelled, and they match.
 - **PixelHue screens spanning two output cards** are charged to both. PixelHue
   does not publish what actually happens. Conservative — it can report "does not
   fit" for something an engineer would make work.

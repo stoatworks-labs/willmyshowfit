@@ -1,4 +1,13 @@
-/** The left-hand column: everything that describes the show. */
+/**
+ * The show editor: everything that describes the show.
+ *
+ * Laid out as four independent columns — outputs, auxes, multiviewer, inputs —
+ * rather than one tall stack. A show is edited by moving between those four
+ * lists, and stacking them meant scrolling past the screens to reach the
+ * sources every single time. They collapse to two columns and then to one on
+ * narrower windows; the show name and the aux-layers switch stay full width
+ * above them, because they apply to all four.
+ */
 
 import type {
   Show,
@@ -50,36 +59,46 @@ export function ShowForm({ show, onChange }: Props) {
         </div>
       </section>
 
-      <Sources show={show} set={set} />
-      <Screens show={show} set={set} />
-      <Destinations
-        title="Aux outputs"
-        items={show.auxes}
-        allowLayers={show.layersOnAux}
-        onChange={(auxes) => set({ auxes })}
-        addLabel="Add aux"
-        make={() => ({
-          id: nextId('aux'),
-          name: 'Aux',
-          connector: 'sdi',
-          count: 1,
-          format: HD_SDI,
-        })}
-      />
-      <Destinations
-        title="Multiviewer outputs"
-        items={show.multiviewers}
-        allowLayers={false}
-        onChange={(multiviewers) => set({ multiviewers })}
-        addLabel="Add multiviewer"
-        make={() => ({
-          id: nextId('mv'),
-          name: 'Multiviewer',
-          connector: 'hdmi',
-          count: 1,
-          format: HD,
-        })}
-      />
+      <div className="show-grid">
+        <div className="show-col">
+          <Screens show={show} set={set} />
+        </div>
+        <div className="show-col">
+          <Destinations
+            title="Aux outputs"
+            items={show.auxes}
+            allowLayers={show.layersOnAux}
+            onChange={(auxes) => set({ auxes })}
+            addLabel="Add aux"
+            make={() => ({
+              id: nextId('aux'),
+              name: 'Aux',
+              connector: 'sdi',
+              count: 1,
+              format: HD_SDI,
+            })}
+          />
+        </div>
+        <div className="show-col">
+          <Destinations
+            title="Multiviewer"
+            items={show.multiviewers}
+            allowLayers={false}
+            onChange={(multiviewers) => set({ multiviewers })}
+            addLabel="Add multiviewer"
+            make={() => ({
+              id: nextId('mv'),
+              name: 'Multiviewer',
+              connector: 'hdmi',
+              count: 1,
+              format: HD,
+            })}
+          />
+        </div>
+        <div className="show-col">
+          <Sources show={show} set={set} />
+        </div>
+      </div>
     </>
   )
 }
@@ -173,7 +192,7 @@ function Screens({ show, set }: { show: Show; set: (p: Partial<Show>) => void })
   return (
     <section className="panel">
       <header>
-        <h2>Screens</h2>
+        <h2>Screens &amp; outputs</h2>
         <button
           onClick={() =>
             set({

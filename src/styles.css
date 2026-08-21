@@ -100,7 +100,7 @@ a {
 /* ------------------------------------------------------------- structure */
 
 .app {
-  max-width: 1500px;
+  max-width: 1760px;
   margin: 0 auto;
   padding: 0 24px 80px;
 }
@@ -134,9 +134,16 @@ a {
   gap: 8px;
 }
 
+/*
+ * Answer on the left, show on the right.
+ *
+ * The verdict list is the thing being watched while the show is typed, so it
+ * gets the sticky narrow column and stays put; the editor gets the width,
+ * because it is four columns of lists rather than one.
+ */
 .columns {
   display: grid;
-  grid-template-columns: minmax(360px, 460px) 1fr;
+  grid-template-columns: minmax(340px, 420px) 1fr;
   gap: 28px;
   align-items: start;
   margin-top: 24px;
@@ -144,6 +151,41 @@ a {
 
 @media (max-width: 1080px) {
   .columns {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stacked, the show has to come first — nothing to read until it exists. */
+  .columns > .col:first-child {
+    order: 2;
+  }
+}
+
+/*
+ * The show editor: outputs, auxes, multiviewer, inputs.
+ *
+ * Four columns on a wide window, two in the middle, one on a phone. The two
+ * `wide` columns (screens and sources) are the ones with real content in them
+ * and get the extra space when there is any going.
+ */
+.show-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr 1.25fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.show-col {
+  min-width: 0;
+}
+
+@media (max-width: 1500px) {
+  .show-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .show-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -637,6 +679,19 @@ th.num {
 
 .disclaimer p {
   margin: 0 0 8px;
+}
+
+/*
+ * The shared Stoatworks support footer appends itself to <body>, outside this
+ * app's container, so without this it sits flush to the viewport edge while
+ * everything above it is centred. It takes no colours of its own.
+ */
+.sw-support {
+  max-width: 1760px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
 /* ---------------------------------------------------------------- report */

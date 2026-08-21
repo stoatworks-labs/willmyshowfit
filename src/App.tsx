@@ -4,7 +4,7 @@ import { DEVICES } from './data/index.ts'
 import { evaluateAll } from './lib/fit/evaluate.ts'
 import { showToXml, xmlToShow } from './lib/io/xml.ts'
 import { reportBodyHtml, standaloneReportHtml } from './lib/report/html.ts'
-import type { Show } from './lib/profiles/video.ts'
+import { emptyShow, type Show } from './lib/profiles/video.ts'
 import { exampleShow } from './ui/bits.tsx'
 import { Results } from './ui/Results.tsx'
 import { ShowForm } from './ui/ShowForm.tsx'
@@ -17,7 +17,15 @@ export function App() {
   const [show, setShow] = useState<Show>(exampleShow)
   const [view, setView] = useState<View>('plan')
   const [problems, setProblems] = useState<string[]>([])
+  // What "Blank show" threw away, so one stray click is not the end of an
+  // afternoon's typing. Cleared as soon as the show is edited again.
+  const [discarded, setDiscarded] = useState<Show | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+
+  const edit = (next: Show) => {
+    setShow(next)
+    setDiscarded(null)
+  }
 
   const results = useMemo(() => evaluateAll(DEVICES, show), [show])
 
@@ -81,13 +89,22 @@ export function App() {
               const file = e.target.files?.[0]
               if (!file) return
               const result = xmlToShow(await file.text())
-              setShow(result.show)
+              edit(result.show)
               setProblems(result.problems)
               e.target.value = ''
             }}
           />
           <button onClick={() => download(`${slug}.xml`, showToXml(show), 'application/xml')}>
             Export XML
+          </button>
+          <button
+            onClick={() => {
+              setDiscarded(show)
+              setShow(emptyShow())
+              setProblems([])
+            }}
+          >
+            Blank show
           </button>
           <button className="primary" onClick={() => setView('report')}>
             Report
@@ -109,18 +126,33 @@ export function App() {
         </div>
       )}
 
-      <div className="columns">
-        <div className="col">
-          <ShowForm show={show} onChange={setShow} />
-          <p className="faint">
-            Nothing here is uploaded. There is no backend to upload it to — the page is static
-            files, and Export XML writes to a file you pick.
-          </p>
+      {discarded && (
+        <div className="notice info" style={{ marginTop: 16 }}>
+          <strong>Blank show.</strong> The previous one is not saved anywhere else.
+          <button
+            className="link"
+            onClick={() => {
+              setShow(discarded)
+              setDiscarded(null)
+            }}
+          >
+            Put it back
+          </button>
         </div>
+      )}
+
+      <div className="columns">
         <div className="col">
           <div className="sticky">
             <Results results={results} show={show} />
           </div>
+        </div>
+        <div className="col">
+          <ShowForm show={show} onChange={edit} />
+          <p className="faint">
+            Nothing here is uploaded. There is no backend to upload it to — the page is static
+            files, and Export XML writes to a file you pick.
+          </p>
         </div>
       </div>
 

@@ -65,7 +65,7 @@ export function Results({ results, show }: { results: DeviceResult[]; show: Show
 
       <Section
         title="Screen-management systems"
-        blurb="Build an arbitrary canvas across several outputs and edge-blend the joins."
+        blurb="Layers placed freely over a background. The bigger ones join several outputs into one edge-blended canvas; the older and smaller ones give you one screen per output."
         results={smt}
         show={show}
         loadouts={loadouts}

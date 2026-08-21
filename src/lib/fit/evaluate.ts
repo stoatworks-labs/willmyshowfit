@@ -45,10 +45,22 @@ export interface VideoRules {
    * presentation switcher builds a 7680x2160 canvas across four outputs and
    * edge-blends it; a vision mixer has no such concept — every output is one
    * raster, and a screen wider than one output simply cannot be made. Defaults
-   * to true, because everything in the database except the vision mixers does
-   * it.
+   * to true, because most of the database does it.
+   *
+   * It is NOT the same question as which section a device belongs in — see
+   * `category`. The legacy Midra platform is a presentation switcher with
+   * freely placed layers and no soft edge at all, so it needs one answer here
+   * and the other one there.
    */
   edgeBlending?: boolean
+  /**
+   * Which section of the results the device is ranked in.
+   *
+   * Defaults to reading `edgeBlending`, which is right for everything that
+   * either blends or is a vision mixer. A device that is neither — a
+   * presentation switcher with layers but no soft edge — says so here.
+   */
+  category?: 'screen-management' | 'vision-mixer'
   /**
    * LivePremier's VPU model, and the one part of it that changes a verdict.
    *
@@ -144,7 +156,7 @@ export function evaluateConfig(
       )
       if (plugs > 1) {
         blockers.push(
-          `${screen.name} is delivered on ${plugs} output plugs. This is a vision mixer, not a screen-management system: it has no edge blending, so a screen has to fit on a single output.`,
+          `${screen.name} is delivered on ${plugs} output plugs. This device has no edge blending — every output is its own raster — so a screen has to fit on a single output.`,
         )
         continue
       }
