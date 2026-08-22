@@ -681,6 +681,65 @@ th.num {
   margin: 0 0 8px;
 }
 
+/* ---------------------------------------------------------- device filter */
+
+/*
+ * The switcher filter above the verdict list. Same picker as the report's, on
+ * the same selection; folded away by default so the answer stays the first
+ * thing in the column.
+ */
+.device-filter {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.device-filter > summary,
+.report-controls > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  list-style: none;
+}
+
+.device-filter > summary::-webkit-details-marker,
+.report-controls > summary::-webkit-details-marker {
+  display: none;
+}
+
+.device-filter > summary:hover,
+.report-controls > summary:hover {
+  background: var(--accent-soft);
+}
+
+.device-filter[open] > summary,
+.report-controls[open] > summary {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 2px;
+  margin-bottom: 8px;
+}
+
+.picker-actions button.link {
+  font-size: 11px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.picker-actions button.link:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
 /* ------------------------------------------------------- report controls */
 
 /*
@@ -689,30 +748,6 @@ th.num {
  */
 .report-controls {
   margin-bottom: 22px;
-}
-
-.report-controls > summary {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 14px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  list-style: none;
-}
-
-.report-controls > summary::-webkit-details-marker {
-  display: none;
-}
-
-.report-controls > summary:hover {
-  background: var(--accent-soft);
-}
-
-.report-controls[open] > summary {
-  border-bottom: 1px solid var(--line-soft);
 }
 
 .report-controls .panel-body {
@@ -729,18 +764,6 @@ th.num {
 
 .report-controls .panel-body > * + * {
   margin-top: 0;
-}
-
-.report-controls .subitems > h4 button.link {
-  font-size: 11px;
-  font-family: var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.report-controls .subitems > h4 button.link:disabled {
-  color: var(--ink-faint);
-  cursor: default;
 }
 
 .vendor + .vendor {
@@ -833,6 +856,19 @@ th.num {
 
 .report table {
   margin-top: 6px;
+}
+
+/* Attribution at the end of the report, on screen and on paper alike. */
+.report .genfooter {
+  margin-top: 34px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.report .genfooter p {
+  margin: 0 0 4px;
 }
 
 @media print {

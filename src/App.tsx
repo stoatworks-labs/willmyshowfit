@@ -165,7 +165,12 @@ export function App() {
       <div className="columns">
         <div className="col">
           <div className="sticky">
-            <Results results={results} show={show} />
+            <Results
+              results={results}
+              show={show}
+              selected={reportOptions.devices}
+              onSelectedChange={(devices) => setReportOptions({ ...reportOptions, devices })}
+            />
           </div>
         </div>
         <div className="col">

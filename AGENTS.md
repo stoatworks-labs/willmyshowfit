@@ -113,17 +113,24 @@ until the pre-4K Midra arrived — a presentation switcher with freely placed
 layers and no soft edge, which needs one answer to each. `deviceClass()` prefers
 `category` and falls back to reading `edgeBlending`, so nothing else moved.
 
+**The switcher selection is shared between the verdict list and the report.**
+One `ReportOptions.devices` array, held in `App`, with `DevicePicker` rendered in
+both places. Splitting them would mean filtering twice and nobody guessing they
+had to. `ReportSections` is the report's own.
+
 **A trimmed report has to say it is trimmed.** `ReportOptions` can narrow the
 report to a few switchers and drop whole sections, and a compatibility matrix
 listing four machines reads as "these are the options" to whoever it was mailed
 to. `summarise()` produces the banner and `reportBodyHtml` prints it whenever
 anything is hidden; the caveat section is not switchable for the same reason.
 Report options are for one printout, not properties of the show, so they are
-deliberately NOT in the XML.
+deliberately NOT in the XML. **The attribution footer is not in `ReportSections`
+either and must not be added to it** — a report that leaves the building has to
+say what build made it and whose trademarks it is using.
 
 ## Verified vs assumed
 
-**Verified:** the engine. 91 tests cover the signal maths against published
+**Verified:** the engine. 93 tests cover the signal maths against published
 timings, mirror/select collapsing, the matching (including the four-SDI-sources
 case a count gets wrong), dual-cable rate splitting, adapter selection, layer
 costing, all four pool scopes, the aux-layer rule per vendor, the vision-mixer

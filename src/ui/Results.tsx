@@ -1,4 +1,10 @@
-/** The right-hand column: the answer, and how it was arrived at. */
+/**
+ * The verdict list: the answer, and how it was arrived at.
+ *
+ * The switcher filter here is the SAME selection the report uses, so narrowing
+ * the list to two brands while comparing carries through to the report rather
+ * than having to be done twice.
+ */
 
 import { useMemo } from 'react'
 
@@ -10,9 +16,24 @@ import { proposeTopology } from '../lib/topology/propose.ts'
 import type { Show } from '../lib/profiles/video.ts'
 import { plugTotals } from '../lib/profiles/video.ts'
 import { Chip } from './bits.tsx'
+import { DevicePicker } from './DevicePicker.tsx'
 
-export function Results({ results, show }: { results: DeviceResult[]; show: Show }) {
+export function Results({
+  results: allResults,
+  show,
+  selected,
+  onSelectedChange,
+}: {
+  /** Every device, so the picker can offer the ones currently hidden. */
+  results: DeviceResult[]
+  show: Show
+  selected: string[]
+  onSelectedChange: (ids: string[]) => void
+}) {
   const totals = plugTotals(show)
+  const chosen = new Set(selected)
+  const results = allResults.filter((r) => chosen.has(r.device.id))
+  const hidden = allResults.length - results.length
 
   // Only searched for devices that missed — about 1.5 ms each, and only the
   // chassis that publish a card catalogue are searched at all.
@@ -55,13 +76,47 @@ export function Results({ results, show }: { results: DeviceResult[]; show: Show
           <span className="v">{totals.out}</span>
         </div>
         <div>
-          <span className="k">Devices that fit</span>
+          {/*
+            The hidden count belongs on the label, not the number. Filtered to
+            "only what fits", the pair reads 9 / 9 — which is true and, without
+            this, reads as "everything fits".
+          */}
+          <span className="k">Devices that fit{hidden > 0 ? ` · ${hidden} hidden` : ''}</span>
           <span className="v">
             {fitting.length}
             <span className="faint"> / {results.length}</span>
           </span>
         </div>
       </div>
+
+      <details className="panel device-filter">
+        <summary>
+          <span>Switchers shown</span>
+          <span className="faint">
+            {results.length} of {allResults.length}
+            {hidden > 0 && ` · ${hidden} hidden`}
+          </span>
+        </summary>
+        <div className="panel-body">
+          <DevicePicker
+            results={allResults}
+            selected={selected}
+            onChange={onSelectedChange}
+            idPrefix="plan"
+          />
+          <p className="faint">
+            This is also what goes in the report — the report page has the same picker, plus the
+            sections to leave out.
+          </p>
+        </div>
+      </details>
+
+      {results.length === 0 && (
+        <p className="empty" style={{ marginTop: 18 }}>
+          No switchers selected, so nothing is being checked. Open <strong>Switchers shown</strong>
+          {' '}above and pick some.
+        </p>
+      )}
 
       <Section
         title="Screen-management systems"
