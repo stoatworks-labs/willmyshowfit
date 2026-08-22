@@ -18,6 +18,7 @@ src/lib/fit/loadout.ts      searching the card catalogue for a loadout that fits
 src/lib/topology/propose.ts a fit turned into a patch list
 src/lib/io/xml.ts           save/load
 src/lib/report/html.ts      the report, one generator for screen and file
+src/lib/report/options.ts   what goes in the report, and what is left out
 src/data/*.ts               the device database
                             (analogway.ts = the current lines,
                              analogway-legacy.ts = Midra pre-4K + LiveCore)
@@ -112,9 +113,17 @@ until the pre-4K Midra arrived — a presentation switcher with freely placed
 layers and no soft edge, which needs one answer to each. `deviceClass()` prefers
 `category` and falls back to reading `edgeBlending`, so nothing else moved.
 
+**A trimmed report has to say it is trimmed.** `ReportOptions` can narrow the
+report to a few switchers and drop whole sections, and a compatibility matrix
+listing four machines reads as "these are the options" to whoever it was mailed
+to. `summarise()` produces the banner and `reportBodyHtml` prints it whenever
+anything is hidden; the caveat section is not switchable for the same reason.
+Report options are for one printout, not properties of the show, so they are
+deliberately NOT in the XML.
+
 ## Verified vs assumed
 
-**Verified:** the engine. 82 tests cover the signal maths against published
+**Verified:** the engine. 91 tests cover the signal maths against published
 timings, mirror/select collapsing, the matching (including the four-SDI-sources
 case a count gets wrong), dual-cable rate splitting, adapter selection, layer
 costing, all four pool scopes, the aux-layer rule per vendor, the vision-mixer

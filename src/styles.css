@@ -681,6 +681,123 @@ th.num {
   margin: 0 0 8px;
 }
 
+/* ------------------------------------------------------- report controls */
+
+/*
+ * Sits above the report and re-renders it live. A <details> so it folds away
+ * once the choices are made, and `no-print` so it never reaches the paper.
+ */
+.report-controls {
+  margin-bottom: 22px;
+}
+
+.report-controls > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  list-style: none;
+}
+
+.report-controls > summary::-webkit-details-marker {
+  display: none;
+}
+
+.report-controls > summary:hover {
+  background: var(--accent-soft);
+}
+
+.report-controls[open] > summary {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.report-controls .panel-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 20px;
+}
+
+@media (max-width: 720px) {
+  .report-controls .panel-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-controls .panel-body > * + * {
+  margin-top: 0;
+}
+
+.report-controls .subitems > h4 button.link {
+  font-size: 11px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.report-controls .subitems > h4 button.link:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.vendor + .vendor {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/*
+ * Two model columns, so twelve Analog Way devices are a block to scan rather
+ * than a list to scroll.
+ */
+.vendor .models {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 2px 12px;
+  margin: 4px 0 0 22px;
+}
+
+.vendor .model {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-family: var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  margin: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.vendor .model input {
+  width: auto;
+  flex: none;
+}
+
+.vendor .model > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The verdict pill is a hint here, not a headline. */
+.vendor .model .chip {
+  flex: none;
+  font-size: 0;
+  padding: 3px;
+  gap: 0;
+}
+
+.vendor .model .chip::before {
+  width: 7px;
+  height: 7px;
+}
+
 /*
  * The shared Stoatworks support footer appends itself to <body>, outside this
  * app's container, so without this it sits flush to the viewport edge while

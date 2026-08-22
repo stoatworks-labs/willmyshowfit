@@ -4,8 +4,10 @@ import { DEVICES } from './data/index.ts'
 import { evaluateAll } from './lib/fit/evaluate.ts'
 import { showToXml, xmlToShow } from './lib/io/xml.ts'
 import { reportBodyHtml, standaloneReportHtml } from './lib/report/html.ts'
+import { ALL_SECTIONS, type ReportOptions } from './lib/report/options.ts'
 import { emptyShow, type Show } from './lib/profiles/video.ts'
 import { exampleShow } from './ui/bits.tsx'
+import { ReportControls } from './ui/ReportControls.tsx'
 import { Results } from './ui/Results.tsx'
 import { ShowForm } from './ui/ShowForm.tsx'
 
@@ -20,6 +22,13 @@ export function App() {
   // What "Blank show" threw away, so one stray click is not the end of an
   // afternoon's typing. Cleared as soon as the show is edited again.
   const [discarded, setDiscarded] = useState<Show | null>(null)
+  // What goes into the report. Kept out of the show and out of the XML: these
+  // describe one printout, not the show, so an exported file always reopens
+  // with the whole report available.
+  const [reportOptions, setReportOptions] = useState<ReportOptions>(() => ({
+    devices: DEVICES.map((d) => d.id),
+    sections: { ...ALL_SECTIONS },
+  }))
   const fileInput = useRef<HTMLInputElement>(null)
 
   const edit = (next: Show) => {
@@ -44,24 +53,36 @@ export function App() {
   if (view === 'report') {
     return (
       <div className="report">
-        <div className="toolbar no-print" style={{ marginBottom: 20 }}>
+        <div className="toolbar no-print" style={{ marginBottom: 14 }}>
           <button onClick={() => setView('plan')}>← Back to planning</button>
           <button className="primary" onClick={() => window.print()}>
             Print / save as PDF
           </button>
           <button
             onClick={() =>
-              download(`${slug}-fit-report.html`, standaloneReportHtml(show, results), 'text/html')
+              download(
+                `${slug}-fit-report.html`,
+                // The same options the page below is showing. Print, download
+                // and screen are one generator with one set of options, so what
+                // is mailed to a client is what was looked at.
+                standaloneReportHtml(show, results, new Date(), reportOptions),
+                'text/html',
+              )
             }
           >
             Download HTML
           </button>
         </div>
+
+        <ReportControls results={results} options={reportOptions} onChange={setReportOptions} />
+
         <div
           // Every user-supplied string in here is escaped by the generator, and
           // the generator emits no scripts. Same source of truth as the file
           // the Download button writes, so the two cannot drift.
-          dangerouslySetInnerHTML={{ __html: reportBodyHtml(show, results, new Date()) }}
+          dangerouslySetInnerHTML={{
+            __html: reportBodyHtml(show, results, new Date(), reportOptions),
+          }}
         />
       </div>
     )

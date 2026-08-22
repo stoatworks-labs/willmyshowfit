@@ -114,6 +114,22 @@ anything 4K do not, in any mode. LiveCore stops at 4K30; to check a 4K60 display
 against one, describe it as a destination fed by four cables and the tool sizes
 the quadrants.
 
+## Trimming the report
+
+The full report is every switcher in the database with a wiring topology under
+each one that fits, which is right when you are choosing a machine and far too
+much when you are sending three pages to a client who has already chosen. The
+report page carries options for it: pick switchers by brand or by model (with a
+one-click "only what fits"), and turn off the input list, output list, screen
+breakdown, wiring topology or the source-document links. The example show goes
+from about 30,000 characters to about 5,600.
+
+Two things stay in whatever you choose. A trimmed report prints a line saying
+so — "showing 9 of 37 switchers … and it leaves out the source documents" —
+because a matrix of nine machines otherwise reads as the whole field to whoever
+receives it. And the caveat stays, because a report that says what fits has to
+say what that rests on.
+
 ## Custom card loadouts
 
 When a modular chassis does not fit as it ships, "does not fit" is only half an

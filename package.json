@@ -1,6 +1,6 @@
 {
   "name": "willmyshowfit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Will my show fit? — describe a show's screens, layers, sources and destinations, and see which video switchers it actually fits on, with a proposed wiring topology for each.",

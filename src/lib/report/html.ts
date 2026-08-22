@@ -16,6 +16,12 @@ import type { Show } from '../profiles/video.ts'
 import { describe, plugTotals } from '../profiles/video.ts'
 import { proposeTopology } from '../topology/propose.ts'
 import type { Verdict } from '../fit/solve.ts'
+import {
+  applyOptions,
+  defaultReportOptions,
+  summarise,
+  type ReportOptions,
+} from './options.ts'
 
 function esc(s: string): string {
   return s
@@ -54,8 +60,16 @@ function table(headers: string[], rows: string[][], aligns: string[] = []): stri
   return `<div class="scroll-x"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
-export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt: Date): string {
+export function reportBodyHtml(
+  show: Show,
+  allResults: DeviceResult[],
+  generatedAt: Date,
+  options: ReportOptions = defaultReportOptions(allResults),
+): string {
   const totals = plugTotals(show)
+  const results = applyOptions(allResults, options)
+  const sections = options.sections
+  const trim = summarise(allResults, results, options)
   const out: string[] = []
 
   out.push(`<h1>${esc(show.name)}</h1>`)
@@ -65,6 +79,27 @@ export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt:
     )} · willmyshowfit.com</p>`,
   )
   if (show.notes.trim()) out.push(`<p>${esc(show.notes)}</p>`)
+
+  // A trimmed report has to say so. A matrix of four switchers reads as "these
+  // are the options" unless the reader is told it is a selection — and the
+  // person the report is sent to is exactly the person who cannot tell.
+  if (trim) {
+    const devicesLine =
+      trim.shown < trim.total
+        ? `Showing <strong>${trim.shown} of ${trim.total}</strong> switchers${
+            trim.vendors.length > 0 ? ` (${esc(trim.vendors.join(', '))})` : ''
+          }`
+        : ''
+    // "It leaves out X" rather than "X is/are omitted": the omitted things are
+    // a mix of singular and plural nouns ("the input list", "the source
+    // documents"), and picking the verb by how many were turned off gets the
+    // agreement wrong the other way round.
+    const omitted = trim.omitted.length > 0 ? `it leaves out ${esc(joinList(trim.omitted))}` : ''
+    const body = devicesLine
+      ? `${devicesLine}${omitted ? `, and ${omitted}` : ''}.`
+      : `${sentenceCase(omitted)}.`
+    out.push(`<p class="trim">This is a filtered report. ${body}</p>`)
+  }
 
   // ---------------------------------------------------------------- summary
   out.push('<h2>The show</h2>')
@@ -83,24 +118,25 @@ export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt:
   )
 
   // ----------------------------------------------------------- input list
-  out.push('<h2>Input list</h2>')
-  out.push(
-    table(
-      ['Source', 'Connector', 'Qty', 'Cables', 'Format', 'HDCP'],
-      show.sources.map((s) => [
-        esc(s.name),
-        esc(s.connector.toUpperCase()),
-        String(s.count),
-        String(s.plugsPerSignal ?? 1),
-        esc(describe(s.format)),
-        s.hdcp ? 'Yes' : '—',
-      ]),
-      ['', '', 'num', 'num', '', ''],
-    ),
-  )
+  if (sections.inputList) {
+    out.push('<h2>Input list</h2>')
+    out.push(
+      table(
+        ['Source', 'Connector', 'Qty', 'Cables', 'Format', 'HDCP'],
+        show.sources.map((s) => [
+          esc(s.name),
+          esc(s.connector.toUpperCase()),
+          String(s.count),
+          String(s.plugsPerSignal ?? 1),
+          esc(describe(s.format)),
+          s.hdcp ? 'Yes' : '—',
+        ]),
+        ['', '', 'num', 'num', '', ''],
+      ),
+    )
+  }
 
   // ---------------------------------------------------------- output list
-  out.push('<h2>Output list</h2>')
   const outRows: string[][] = []
   for (const scr of show.screens) {
     for (const d of scr.destinations) {
@@ -134,10 +170,19 @@ export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt:
       esc(describe(m.format)),
     ])
   }
-  out.push(table(['Screen', 'Destination', 'Role', 'Connector', 'Qty', 'Format'], outRows, ['', '', '', '', 'num', '']))
+  if (sections.outputList) {
+    out.push('<h2>Output list</h2>')
+    out.push(
+      table(
+        ['Screen', 'Destination', 'Role', 'Connector', 'Qty', 'Format'],
+        outRows,
+        ['', '', '', '', 'num', ''],
+      ),
+    )
+  }
 
   // ------------------------------------------------------------- screens
-  if (show.screens.length > 0) {
+  if (sections.screens && show.screens.length > 0) {
     out.push('<h2>Screens</h2>')
     for (const scr of show.screens) {
       out.push(
@@ -160,33 +205,41 @@ export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt:
 
   // -------------------------------------------------------------- matrix
   out.push('<h2>Switcher compatibility matrix</h2>')
-  out.push(
-    table(
-      ['Verdict', 'Device', 'Configuration', 'Spare in', 'Spare out', 'Notes'],
-      results.map((r) => [
-        `<span class="chip ${VERDICT_CLASS[r.best.verdict]}">${VERDICT_TEXT[r.best.verdict]}</span>`,
-        `${esc(r.device.vendor)} ${esc(r.device.model)}`,
-        esc(r.best.config.label),
-        r.best.verdict.startsWith('fits') ? String(r.best.headroom.inputs) : '—',
-        r.best.verdict.startsWith('fits') ? String(r.best.headroom.outputs) : '—',
-        r.best.blockers.length > 0
-          ? esc(r.best.blockers[0])
-          : `<span class="soft">${esc(r.best.warnings[0] ?? '')}</span>`,
-      ]),
-      ['', '', '', 'num', 'num', ''],
-    ),
-  )
+  if (results.length === 0) {
+    out.push(
+      '<p>No switchers were selected for this report — everything else here is about the show itself.</p>',
+    )
+  } else {
+    out.push(
+      table(
+        ['Verdict', 'Device', 'Configuration', 'Spare in', 'Spare out', 'Notes'],
+        results.map((r) => [
+          `<span class="chip ${VERDICT_CLASS[r.best.verdict]}">${VERDICT_TEXT[r.best.verdict]}</span>`,
+          `${esc(r.device.vendor)} ${esc(r.device.model)}`,
+          esc(r.best.config.label),
+          r.best.verdict.startsWith('fits') ? String(r.best.headroom.inputs) : '—',
+          r.best.verdict.startsWith('fits') ? String(r.best.headroom.outputs) : '—',
+          r.best.blockers.length > 0
+            ? esc(r.best.blockers[0])
+            : `<span class="soft">${esc(r.best.warnings[0] ?? '')}</span>`,
+        ]),
+        ['', '', '', 'num', 'num', ''],
+      ),
+    )
+  }
 
   // ------------------------------------------------------------ topology
   const fitting = results.filter(
     (r) => r.best.verdict === 'fits' || r.best.verdict === 'fits-with-tradeoff',
   )
-  if (fitting.length === 0) {
+  if (sections.topology && fitting.length === 0) {
     out.push('<h2>Wiring topology</h2>')
     out.push(
-      '<p>No device in the database fits this show as described, so there is no topology to propose. The matrix above gives the first blocker for each.</p>',
+      results.length === 0
+        ? '<p>No switchers were selected for this report, so there is no topology to propose.</p>'
+        : '<p>Nothing shown here fits this show as described, so there is no topology to propose. The matrix above gives the first blocker for each.</p>',
     )
-  } else {
+  } else if (sections.topology) {
     out.push('<h2>Wiring topology</h2>')
     for (const r of fitting) {
       const topo = proposeTopology(r.best, show)
@@ -211,7 +264,37 @@ export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt:
   }
 
   // --------------------------------------------------------- provenance
-  out.push('<h2>Where these numbers come from</h2>')
+  if (sections.citations) out.push(sourcesHtml(results))
+
+  out.push(
+    `<h2>Caveat</h2><p>Every figure in this report is read from published vendor documentation${
+      sections.citations ? ' and cited above' : ''
+    }. <strong>None of it has been verified against hardware</strong>, and vendors revise specifications without notice. Treat a "fits" as a shortlist, not a purchase order.</p>`,
+  )
+
+  return out.join('\n')
+}
+
+/** "a, b and c" — the omission line reads as a sentence, not a list. */
+function joinList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
+function sentenceCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/**
+ * The source documents, one line per distinct claim.
+ *
+ * Generated from the devices that survived the filter, so a report narrowed to
+ * one vendor does not carry four vendors' worth of links. This is the section
+ * people turn off — it is the longest one in a full report and the least
+ * interesting to a reader who is not checking the working.
+ */
+function sourcesHtml(results: DeviceResult[]): string {
+  const out: string[] = ['<h2>Where these numbers come from</h2>']
   const seen = new Set<string>()
   const cites: string[] = []
   for (const r of results) {
@@ -229,12 +312,11 @@ export function reportBodyHtml(show: Show, results: DeviceResult[], generatedAt:
       )
     }
   }
-  out.push(`<ul class="cites">${cites.join('\n')}</ul>`)
-
   out.push(
-    `<h2>Caveat</h2><p>Every figure in this report is read from published vendor documentation and cited above. <strong>None of it has been verified against hardware</strong>, and vendors revise specifications without notice. Treat a "fits" as a shortlist, not a purchase order.</p>`,
+    cites.length > 0
+      ? `<ul class="cites">${cites.join('\n')}</ul>`
+      : '<p class="soft">No switchers were selected, so there is nothing to cite.</p>',
   )
-
   return out.join('\n')
 }
 
@@ -261,6 +343,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .chip.no { color: #a33125; background: #fbeae8; }
 .chip.impossible { color: #8493a6; background: #edf0f3; }
 ul.cites { font-size: 13px; color: #55657a; }
+.trim { font-size: 13px; color: #55657a; border-left: 3px solid #dfe3e8; padding-left: 10px; }
 ul.cites li { margin-bottom: 5px; }
 a { color: #1f5f96; word-break: break-all; }
 @media print {
@@ -273,7 +356,8 @@ a { color: #1f5f96; word-break: break-all; }
   h2 { border-color: #273445; }
   th { border-color: #273445; color: #6f7f93; }
   td { border-color: #1d2836; }
-  .soft, ul.cites { color: #a2b0c2; }
+  .soft, ul.cites, .trim { color: #a2b0c2; }
+  .trim { border-color: #273445; }
   a { color: #6ea8dc; }
   .chip.fits { color: #5fc38d; background: #12291e; }
   .chip.tradeoff { color: #d9a441; background: #2b2113; }
@@ -283,7 +367,12 @@ a { color: #1f5f96; word-break: break-all; }
 `
 
 /** A standalone file: no scripts, no external requests, opens anywhere. */
-export function standaloneReportHtml(show: Show, results: DeviceResult[], at = new Date()): string {
+export function standaloneReportHtml(
+  show: Show,
+  results: DeviceResult[],
+  at = new Date(),
+  options: ReportOptions = defaultReportOptions(results),
+): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -293,7 +382,7 @@ export function standaloneReportHtml(show: Show, results: DeviceResult[], at = n
 <style>${REPORT_CSS}</style>
 </head>
 <body>
-${reportBodyHtml(show, results, at)}
+${reportBodyHtml(show, results, at, options)}
 </body>
 </html>
 `
