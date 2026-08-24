@@ -254,3 +254,10 @@ very different things.
 3. **Barco Tri-combo chassis** (E2 Tri-combo, S3 Tri-combo Gen 2) are now fully
    documented as a side effect of reading their sheets for the card catalogue —
    adding them is mostly data entry.
+
+## Notes
+
+`docs/NOTES.md` carries this repo's working notes — current status, decisions
+already made, and the traps that have actually bitten. Read it before changing
+anything non-obvious. Cross-cutting fleet knowledge lives in
+[fleet-notes](https://github.com/stoatworks-labs/fleet-notes).
