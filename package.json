@@ -3,7 +3,7 @@
   "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "Will my show fit? — describe a show's screens, layers, sources and destinations, and see which video switchers it actually fits on, with a proposed wiring topology for each.",
+  "description": "Will my show fit? \u2014 describe a show's screens, layers, sources and destinations, and see which video switchers it actually fits on, with a proposed wiring topology for each.",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
@@ -15,13 +15,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^28.0.0",
     "typescript": "^7.0.2",
