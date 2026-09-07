@@ -231,6 +231,36 @@ Roland or Blackmagic Design. All product names, logos and brands are the
 property of their respective owners and are used here only to identify the
 equipment being described.
 
+<!-- selfhost:start -->
+## Run your own copy
+
+Will My Show Fit? is a static page, so hosting it yourself is one container serving
+the built files — the same files the hosted copy serves, running somewhere that
+still works when the venue has no internet.
+
+**Docker.** The image is built by this repo's `docker.yml` workflow on every
+push and published as `ghcr.io/stoatworks-labs/willmyshowfit`:
+
+```bash
+docker run -d --name willmyshowfit --restart unless-stopped -p 8537:80 ghcr.io/stoatworks-labs/willmyshowfit:latest
+```
+
+Or `docker compose up -d` with the [`docker-compose.yml`](docker-compose.yml)
+in this repo, which maps the same port. Either way it is then at
+`http://localhost:8537/`.
+
+**Unraid.** Search Community Applications for *Will My Show Fit?* — the template is
+[`templates/willmyshowfit.xml`](https://github.com/stoatworks-labs/stoatworks-unraid/blob/main/templates/willmyshowfit.xml)
+in [stoatworks-unraid](https://github.com/stoatworks-labs/stoatworks-unraid), which is what the CA feed reads.
+
+**Stoatworks Burrow** lists it under *Self-hosted*, with the compose file a
+click away.
+
+The `Dockerfile`, `docker-compose.yml`, `docker/` and the workflow are
+generated from `fleet.json` in stoatworks-unraid. Change them there and
+regenerate rather than editing them here.
+<!-- selfhost:end -->
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
