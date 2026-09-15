@@ -17,6 +17,10 @@ the chassis. Then it proposes a wiring topology for each switcher that fits.
 
 Nothing is uploaded. There is no backend to upload it to.
 
+![Will my show fit? with a corporate general session described and the device list marked fits or does not fit](docs/screenshots/willmyshowfit.png)
+
+<sub>A corporate general session — two screens, four layers, ten input plugs — checked against the device library: nine of twenty-five fit, with the spare inputs and outputs each would have, and the blocker on the ones that do not.</sub>
+
 ## What it checks
 
 **Plugs, as a matching rather than a count.** Twelve inputs and twelve sources
