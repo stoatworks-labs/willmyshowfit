@@ -1,4 +1,5 @@
-> **AI-assisted project.** This codebase was created with [Claude Code](https://claude.com/claude-code).
+> **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
+> (Anthropic), directed and reviewed by a human author.
 > Every figure in it is read from published vendor documentation and cited on the device that uses
 > it, and a test fails the build if anything claims to be `documented` without a citation. But
 > **none of it has been verified against hardware, and no show has ever been built from a topology
