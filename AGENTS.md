@@ -249,7 +249,8 @@ very different things.
 
 ## Next
 
-1. **Aquilon mixer/slice verdicts**, once the slice rule is confirmed.
+1. **Aquilon mixer/slice verdicts**: done. The slice rule was confirmed on an Aquilon C and
+   is in the verdict as the scaling-engine boundary above (32bb951).
 2. **Audio profile** for sound desks — the reason the core is generic.
 3. **Barco Tri-combo chassis** (E2 Tri-combo, S3 Tri-combo Gen 2) are now fully
    documented as a side effect of reading their sheets for the card catalogue —
