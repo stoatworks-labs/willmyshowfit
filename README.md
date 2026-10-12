@@ -20,7 +20,7 @@ Nothing is uploaded. There's no backend to upload it to.
 
 ![Will my show fit? with a corporate general session described and the device list marked fits or does not fit](docs/screenshots/willmyshowfit.png)
 
-<sub>A corporate general session (two screens, four layers, ten input plugs) checked against the device library: nine of twenty-five fit, with the spare inputs and outputs each would have, and the blocker on the ones that don't.</sub>
+<sub>A corporate general session (two screens, four layers, ten input plugs) checked against the device library: nine fit, with the spare inputs and outputs each would have, and the blocker on the ones that don't. The screenshot is from when the library had twenty-five switchers. It has thirty-seven now, and the same nine fit.</sub>
 
 ## What it checks
 
