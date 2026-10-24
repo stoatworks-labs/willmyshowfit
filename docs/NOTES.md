@@ -51,7 +51,7 @@ back-panel sockets overstates a Midra by a third. Easiest mistake in the repo.
   time BEFORE dividing by active lines.** Dividing the whole frame time gives
   ~1096 lines instead of 1111 for 1080p60 and puts every clock several percent
   low — which reads as "this just fits" on a plug where it does not. Same family
-  of error as the CVT trap in [otter edid editor](https://github.com/stoatworks-labs/otter-edid-editor/blob/main/docs/NOTES.md) (`otter-edid-editor`); a test pins
+  of error as the CVT trap in [edid editor](https://github.com/stoatworks-labs/edid-editor/blob/main/docs/NOTES.md) (`edid-editor`); a test pins
   2000x1111 / 133.32 MHz. **Found by a test, not by inspection.**
 - **Pixel rates include blanking.** Active pixels under-report ~20%.
 - **Layer costs are each vendor's own published arithmetic, NEVER derived.**
@@ -80,7 +80,7 @@ back-panel sockets overstates a Midra by a third. Easiest mistake in the repo.
 
 ## Data discipline
 
-Same posture as [otter edid editor](https://github.com/stoatworks-labs/otter-edid-editor/blob/main/docs/NOTES.md) (`otter-edid-editor`): `documented` / `inferred` /
+Same posture as [edid editor](https://github.com/stoatworks-labs/edid-editor/blob/main/docs/NOTES.md) (`edid-editor`): `documented` / `inferred` /
 `unverified` with mandatory citations, and **`data.test.ts` fails the build** if
 anything claims `documented` without one, or `unverified` without a note
 explaining itself. 73 tests total.
@@ -248,7 +248,7 @@ Listed on stoatworks-labs.com as **web tool 09**, Video group, and
 `/software/willmyshowfit`. **Third-party model numbers stay OFF the site as
 usual** ([stoatworks website](https://github.com/stoatworks-labs/stoatworks-website/blob/main/docs/NOTES.md) (`stoatworks-website`)) — the summary and detail copy describe
 the machines without naming any, even though the tool itself names them
-throughout. Inserted **after otter-edid-editor** in `webtools.json` rather than
+throughout. Inserted **after edid-editor** in `webtools.json` rather than
 appended, because file order is page order.
 
 ⚠️ **`web-tools.astro`'s `detail` map needs the exact key set** or the build dies
