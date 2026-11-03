@@ -1,0 +1,27 @@
+# Will My Show Fit?
+
+> The show you have, and the switchers that will take it: a video switcher capacity checker.
+
+Describe a show (the screens and their canvases, the layers on each, every source and every destination) and it works out which switchers will actually take it. Adding up the inputs is what a spreadsheet does, and it's what catches people out. This checks there's a physical plug of the right type and capability for every signal, that the layer budget covers the layers the way each manufacturer counts them, and that the canvas fits. It checks thirty-seven machines, then proposes a wiring topology for each one that fits.
+
+It runs in the browser at https://willmyshowfit.com/ and is free to use. Nothing is uploaded; there's no backend to upload it to.
+
+## The switchers it checks
+
+- Analog Way: Midra 4K (QuickVu, QuickMatrix, Pulse, Eikos, each mode checked separately), Alta 4K (Zenith 100/200), LivePremier (Aquilon RS alpha, RS1–RS6), Midra pre-4K (QuickVu 3G, QuickMatriX, Pulse², SmartMatriX², Saphyr, Eikos²) and LiveCore (NeXtage 08/16 - 4K, Ascender 16/32/48 - 4K, SmartMatriX Ultra)
+- Barco: S3 standalone, E2 Gen 1, E2 Gen 2, ENCORE3
+- PixelHue: F4, F8
+- Roland: V-160HD, VR-400UHD, V-600UHD
+- Blackmagic Design: ATEM 1/2/4 M/E Constellation 4K
+
+## What to know before relying on it
+
+Every figure comes from published vendor documentation and is cited on the device that uses it. None of it has been verified against hardware, and no show has been built from a topology it proposed, so treat a "fits" as a shortlist, not a purchase order.
+
+## Links
+
+- [Will My Show Fit? on Stoatworks Labs](https://stoatworks-labs.com/web-tools/willmyshowfit/): what it is, with links to everything else
+- [Project page](https://stoatworks-labs.com/software/willmyshowfit/)
+- [User guide](https://stoatworks-labs.com/software/willmyshowfit/guide/)
+- [Source code](https://github.com/stoatworks-labs/willmyshowfit)
+- [Self-hosting](https://stoatworks-labs.com/web-tools/self-hosting/): running it on your own server

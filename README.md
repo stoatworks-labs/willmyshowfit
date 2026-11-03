@@ -18,6 +18,8 @@ switcher that fits.
 
 Nothing is uploaded. There's no backend to upload it to.
 
+Its [page on Stoatworks Labs](https://stoatworks-labs.com/web-tools/willmyshowfit/) covers running it on your own server, and the [project page](https://stoatworks-labs.com/software/willmyshowfit/) has the user guide.
+
 ![Will my show fit? with a corporate general session described and the device list marked fits or does not fit](docs/screenshots/willmyshowfit.png)
 
 <sub>A corporate general session (two screens, four layers, ten input plugs) checked against the device library: nine fit, with the spare inputs and outputs each would have, and the blocker on the ones that don't. The screenshot is from when the library had twenty-five switchers. It has thirty-seven now, and the same nine fit.</sub>

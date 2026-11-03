@@ -184,7 +184,10 @@ export function App() {
 
       <footer className="faint" style={{ marginTop: 40 }}>
         {DEVICES.length} devices from Analog Way, Barco, PixelHue, Roland and Blackmagic Design ·{' '}
-        {__APP_VERSION__} · Not affiliated with, endorsed by, or a product of any manufacturer named
+        <a href="https://stoatworks-labs.com/web-tools/willmyshowfit/" target="_blank" rel="noopener">
+          About this tool
+        </a>{' '}
+        · {__APP_VERSION__} · Not affiliated with, endorsed by, or a product of any manufacturer named
         here. All trademarks belong to their owners.
       </footer>
     </div>

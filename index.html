@@ -4,10 +4,63 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Will my show fit? — video switcher capacity checker</title>
-    <meta
-      name="description"
-      content="Describe a show's screens, layers, sources and destinations, and see which video switchers it actually fits on — with a proposed wiring topology for each."
-    />
+    <meta name="description" content="Describe a show&#x27;s screens, layers, sources and destinations, and see which video switchers it actually fits on, with a wiring topology for each. Free, in the browser." />
+    <link rel="canonical" href="https://willmyshowfit.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stoatworks Labs" />
+    <meta property="og:title" content="Will my show fit? — video switcher capacity checker" />
+    <meta property="og:description" content="Describe a show&#x27;s screens, layers, sources and destinations, and see which video switchers it actually fits on, with a wiring topology for each. Free, in the browser." />
+    <meta property="og:url" content="https://willmyshowfit.com/" />
+    <meta property="og:image" content="https://stoatworks-labs.com/thumbs/willmyshowfit.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:image:alt" content="Will my show fit?" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://willmyshowfit.com#app",
+        "name": "Will my show fit?",
+        "alternateName": "Will My Show Fit?",
+        "url": "https://willmyshowfit.com",
+        "description": "Describe a show's screens, layers, sources and destinations, and see which video switchers it actually fits on, with a wiring topology for each. Free, in the browser.",
+        "featureList": [
+          "A physical plug of the right type and capability for every signal",
+          "Layer capacity counted the way each manufacturer counts it",
+          "Canvas size checked against each chassis",
+          "A proposed wiring topology for each switcher that fits"
+        ],
+        "keywords": "video switcher capacity, screen management, layers, edge blending, HDMI, SDI, DisplayPort, Analog Way, Barco, PixelHue, Roland, Blackmagic Design",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Any (runs in a web browser)",
+        "browserRequirements": "Requires JavaScript. Runs entirely in the browser.",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "GBP"
+        },
+        "screenshot": "https://stoatworks-labs.com/thumbs/willmyshowfit.png",
+        "softwareHelp": {
+          "@type": "CreativeWork",
+          "url": "https://stoatworks-labs.com/software/willmyshowfit/guide/"
+        },
+        "author": {
+          "@id": "https://stoatworks-labs.com/#organization",
+          "@type": "Organization",
+          "name": "Stoatworks Labs",
+          "url": "https://stoatworks-labs.com/"
+        },
+        "publisher": {
+          "@id": "https://stoatworks-labs.com/#organization"
+        },
+        "sameAs": [
+          "https://stoatworks-labs.com/web-tools/willmyshowfit/",
+          "https://github.com/stoatworks-labs/willmyshowfit"
+        ]
+      }
+    </script>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111b2e'/%3E%3Crect x='6' y='9' width='20' height='13' rx='2' fill='none' stroke='%236ea8dc' stroke-width='2'/%3E%3Cpath d='M11 15.5h4M11 18.5h10' stroke='%236ea8dc' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- iOS ignores the manifest's icons and wants a PNG of its own. -->
@@ -17,6 +70,26 @@
     <meta name="theme-color" content="#0e1620" media="(prefers-color-scheme: dark)" />
   </head>
   <body>
+    <noscript>
+      <h1>Will my show fit?</h1>
+      <p>Describe a show (the screens and their canvases, the layers on each, every source and every destination) and it works out which switchers will actually take it. Adding up the inputs is what a spreadsheet does, and it's what catches people out. This checks there's a physical plug of the right type and capability for every signal, that the layer budget covers the layers the way each manufacturer counts them, and that the canvas fits. It checks thirty-seven machines, then proposes a wiring topology for each one that fits.</p>
+      <h2>The switchers it checks</h2>
+      <ul>
+        <li>Analog Way: Midra 4K (QuickVu, QuickMatrix, Pulse, Eikos, each mode checked separately), Alta 4K (Zenith 100/200), LivePremier (Aquilon RS alpha, RS1–RS6), Midra pre-4K (QuickVu 3G, QuickMatriX, Pulse², SmartMatriX², Saphyr, Eikos²) and LiveCore (NeXtage 08/16 - 4K, Ascender 16/32/48 - 4K, SmartMatriX Ultra)</li>
+        <li>Barco: S3 standalone, E2 Gen 1, E2 Gen 2, ENCORE3</li>
+        <li>PixelHue: F4, F8</li>
+        <li>Roland: V-160HD, VR-400UHD, V-600UHD</li>
+        <li>Blackmagic Design: ATEM 1/2/4 M/E Constellation 4K</li>
+      </ul>
+      <p>Every figure comes from published vendor documentation and is cited on the device that uses it. None of it has been verified against hardware, so treat a "fits" as a shortlist, not a purchase order.</p>
+      <p>It runs entirely in the browser, and nothing is uploaded. It needs JavaScript to run.</p>
+      <ul>
+        <li><a href="https://stoatworks-labs.com/web-tools/willmyshowfit/">Will My Show Fit? on Stoatworks Labs</a></li>
+        <li><a href="https://stoatworks-labs.com/software/willmyshowfit/">Project page</a></li>
+        <li><a href="https://stoatworks-labs.com/software/willmyshowfit/guide/">User guide</a></li>
+        <li><a href="https://github.com/stoatworks-labs/willmyshowfit">Source code on GitHub</a></li>
+      </ul>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!--
