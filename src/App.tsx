@@ -89,107 +89,113 @@ export function App() {
   }
 
   return (
-    <div className="app">
-      <header className="masthead">
-        <div className="grow">
-          <h1>Will my show fit?</h1>
-          <p>
-            Describe the screens, layers, sources and destinations. See which switchers actually
-            take it — enough plugs of the right type and capability, enough layer capacity, enough
-            outputs — and how you would wire each one.
-          </p>
-        </div>
-        <div className="toolbar">
-          <button onClick={() => fileInput.current?.click()}>Import XML</button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".xml,text/xml,application/xml"
-            style={{ display: 'none' }}
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              const result = xmlToShow(await file.text())
-              edit(result.show)
-              setProblems(result.problems)
-              e.target.value = ''
-            }}
-          />
-          <button onClick={() => download(`${slug}.xml`, showToXml(show), 'application/xml')}>
-            Export XML
-          </button>
-          <button
-            onClick={() => {
-              setDiscarded(show)
-              setShow(emptyShow())
-              setProblems([])
-            }}
-          >
-            Blank show
-          </button>
-          <button className="primary" onClick={() => setView('report')}>
-            Report
-          </button>
+    <>
+      {/* The navy bar from the shared theme (sw-bar), across the whole window. */}
+      <header className="masthead sw-bar">
+        <div className="masthead-inner">
+          <h1 className="sw-brand">
+            <span className="sw-mark" aria-hidden="true">?</span> Will my show fit?
+          </h1>
+          <div className="toolbar">
+            <button onClick={() => fileInput.current?.click()}>Import XML</button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".xml,text/xml,application/xml"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const result = xmlToShow(await file.text())
+                edit(result.show)
+                setProblems(result.problems)
+                e.target.value = ''
+              }}
+            />
+            <button onClick={() => download(`${slug}.xml`, showToXml(show), 'application/xml')}>
+              Export XML
+            </button>
+            <button
+              onClick={() => {
+                setDiscarded(show)
+                setShow(emptyShow())
+                setProblems([])
+              }}
+            >
+              Blank show
+            </button>
+            <button className="sw-primary" onClick={() => setView('report')}>
+              Report
+            </button>
+          </div>
         </div>
       </header>
 
-      {problems.length > 0 && (
-        <div className="notice" style={{ marginTop: 16 }}>
-          <strong>That file imported with {problems.length} problem{problems.length === 1 ? '' : 's'}.</strong>
-          <ul className="reasons" style={{ marginTop: 6 }}>
-            {problems.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-          <button className="link" onClick={() => setProblems([])}>
-            Dismiss
-          </button>
-        </div>
-      )}
+      <div className="app">
+        <p className="lede">
+          Describe the screens, layers, sources and destinations. See which switchers actually
+          take it — enough plugs of the right type and capability, enough layer capacity, enough
+          outputs — and how you would wire each one.
+        </p>
 
-      {discarded && (
-        <div className="notice info" style={{ marginTop: 16 }}>
-          <strong>Blank show.</strong> The previous one is not saved anywhere else.
-          <button
-            className="link"
-            onClick={() => {
-              setShow(discarded)
-              setDiscarded(null)
-            }}
-          >
-            Put it back
-          </button>
-        </div>
-      )}
+        {problems.length > 0 && (
+          <div className="notice" style={{ marginTop: 16 }}>
+            <strong>That file imported with {problems.length} problem{problems.length === 1 ? '' : 's'}.</strong>
+            <ul className="reasons" style={{ marginTop: 6 }}>
+              {problems.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+            <button className="link" onClick={() => setProblems([])}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
-      <div className="columns">
-        <div className="col">
-          <div className="sticky">
-            <Results
-              results={results}
-              show={show}
-              selected={reportOptions.devices}
-              onSelectedChange={(devices) => setReportOptions({ ...reportOptions, devices })}
-            />
+        {discarded && (
+          <div className="notice info" style={{ marginTop: 16 }}>
+            <strong>Blank show.</strong> The previous one is not saved anywhere else.
+            <button
+              className="link"
+              onClick={() => {
+                setShow(discarded)
+                setDiscarded(null)
+              }}
+            >
+              Put it back
+            </button>
+          </div>
+        )}
+
+        <div className="columns">
+          <div className="col">
+            <div className="sticky">
+              <Results
+                results={results}
+                show={show}
+                selected={reportOptions.devices}
+                onSelectedChange={(devices) => setReportOptions({ ...reportOptions, devices })}
+              />
+            </div>
+          </div>
+          <div className="col">
+            <ShowForm show={show} onChange={edit} />
+            <p className="faint">
+              Nothing here is uploaded. There is no backend to upload it to — the page is static
+              files, and Export XML writes to a file you pick.
+            </p>
           </div>
         </div>
-        <div className="col">
-          <ShowForm show={show} onChange={edit} />
-          <p className="faint">
-            Nothing here is uploaded. There is no backend to upload it to — the page is static
-            files, and Export XML writes to a file you pick.
-          </p>
-        </div>
-      </div>
 
-      <footer className="faint" style={{ marginTop: 40 }}>
-        {DEVICES.length} devices from Analog Way, Barco, PixelHue, Roland and Blackmagic Design ·{' '}
-        <a href="https://stoatworks-labs.com/web-tools/willmyshowfit/" target="_blank" rel="noopener">
-          About this tool
-        </a>{' '}
-        · {__APP_VERSION__} · Not affiliated with, endorsed by, or a product of any manufacturer named
-        here. All trademarks belong to their owners.
-      </footer>
-    </div>
+        <footer className="faint" style={{ marginTop: 40 }}>
+          {DEVICES.length} devices from Analog Way, Barco, PixelHue, Roland and Blackmagic Design ·{' '}
+          <a href="https://stoatworks-labs.com/web-tools/willmyshowfit/" target="_blank" rel="noopener">
+            About this tool
+          </a>{' '}
+          · {__APP_VERSION__} · Not affiliated with, endorsed by, or a product of any manufacturer named
+          here. All trademarks belong to their owners.
+        </footer>
+      </div>
+    </>
   )
 }

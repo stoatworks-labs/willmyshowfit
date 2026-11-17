@@ -1,73 +1,34 @@
 /*
  * One stylesheet, no framework.
  *
- * Light and dark both ship. Every colour is a token defined on bare `:root`
- * and redefined under both `prefers-color-scheme: dark` and an explicit
- * `[data-theme]`, so a colour never has its only definition inside a media
- * query.
+ * Colours come from the shared Stoatworks theme (stoatworks-theme.css, imported
+ * first in main.tsx), which switches them for light and dark from the system
+ * setting or an explicit `[data-theme]`. The names here are this app's own,
+ * pointed at the theme's tokens; the -soft fills are the state colours mixed
+ * into the card ground, so they follow the mode with them.
  */
 
 :root {
-  --ink: #14202f;
-  --ink-soft: #55657a;
-  --ink-faint: #8493a6;
-  --paper: #fbfbf9;
-  --panel: #ffffff;
-  --line: #dfe3e8;
-  --line-soft: #edf0f3;
-  --accent: #1f5f96;
-  --accent-soft: #e8f0f7;
+  --ink: var(--sw-ink);
+  --ink-soft: var(--sw-muted);
+  --ink-faint: var(--sw-faint);
+  --paper: var(--sw-paper);
+  --panel: var(--sw-card);
+  --line: var(--sw-line);
+  --line-soft: var(--sw-tint);
+  --accent: var(--sw-accent);
+  --accent-soft: color-mix(in srgb, var(--sw-accent) 8%, var(--sw-card));
 
-  --ok: #1a7a4c;
-  --ok-soft: #e6f4ec;
-  --warn: #9a6413;
-  --warn-soft: #fbf1de;
-  --bad: #a33125;
-  --bad-soft: #fbeae8;
+  --ok: var(--sw-ok);
+  --ok-soft: color-mix(in srgb, var(--sw-ok) 12%, var(--sw-card));
+  --warn: var(--sw-warn);
+  --warn-soft: color-mix(in srgb, var(--sw-warn) 12%, var(--sw-card));
+  --bad: var(--sw-bad);
+  --bad-soft: color-mix(in srgb, var(--sw-bad) 12%, var(--sw-card));
 
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --radius: 6px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ink: #e8edf3;
-    --ink-soft: #a2b0c2;
-    --ink-faint: #6f7f93;
-    --paper: #0e1620;
-    --panel: #151f2c;
-    --line: #27344551;
-    --line-soft: #1d2836;
-    --accent: #6ea8dc;
-    --accent-soft: #16273a;
-
-    --ok: #5fc38d;
-    --ok-soft: #12291e;
-    --warn: #d9a441;
-    --warn-soft: #2b2113;
-    --bad: #e8776a;
-    --bad-soft: #2e1917;
-  }
-}
-
-:root[data-theme="dark"] {
-  --ink: #e8edf3;
-  --ink-soft: #a2b0c2;
-  --ink-faint: #6f7f93;
-  --paper: #0e1620;
-  --panel: #151f2c;
-  --line: #273445;
-  --line-soft: #1d2836;
-  --accent: #6ea8dc;
-  --accent-soft: #16273a;
-
-  --ok: #5fc38d;
-  --ok-soft: #12291e;
-  --warn: #d9a441;
-  --warn-soft: #2b2113;
-  --bad: #e8776a;
-  --bad-soft: #2e1917;
+  --mono: var(--sw-mono);
+  --sans: var(--sw-font);
+  --radius: var(--sw-radius-sm);
 }
 
 * {
@@ -105,27 +66,33 @@ a {
   padding: 0 24px 80px;
 }
 
+/* The navy bar spans the window; its row lines up with the page below. */
 .masthead {
+  padding: 10px 0;
+}
+
+.masthead-inner {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px 28px;
-  padding: 28px 0 20px;
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 28px;
+  width: 100%;
+  max-width: 1760px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
-.masthead h1 {
-  font-size: 26px;
+/* The heading rule above would otherwise override the theme's brand. */
+.masthead .sw-brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.masthead p {
-  margin: 2px 0 0;
+.lede {
+  margin: 20px 0 0;
   color: var(--ink-soft);
   max-width: 62ch;
-}
-
-.masthead .grow {
-  flex: 1 1 240px;
 }
 
 .toolbar {
@@ -204,7 +171,7 @@ a {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--sw-radius);
   margin-bottom: 16px;
 }
 
@@ -218,12 +185,9 @@ a {
 }
 
 .panel > header h2 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 650;
 }
 
 .panel-body {
@@ -242,7 +206,9 @@ a {
 
 /* --------------------------------------------------------------- controls */
 
-button {
+/* Scoped to the page (:where keeps it as weak as a bare `button` rule), so the
+   navy bar's buttons keep the theme's outlined light look. */
+:where(.app, .report) button {
   font: inherit;
   font-size: 13px;
   padding: 5px 11px;
@@ -253,20 +219,21 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+:where(.app, .report) button:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-button.primary {
+:where(.app, .report) button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--sw-on-accent);
+  font-weight: 600;
 }
 
-button.primary:hover {
+:where(.app, .report) button.primary:hover {
   filter: brightness(1.08);
-  color: #fff;
+  color: var(--sw-on-accent);
 }
 
 button.link {
@@ -289,7 +256,7 @@ textarea {
   padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: var(--panel);
   color: var(--ink);
   width: 100%;
   min-width: 0;
@@ -308,7 +275,7 @@ label {
   font-family: var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   margin-bottom: 3px;
 }
 
@@ -511,7 +478,7 @@ th.num {
 
 .result {
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--sw-radius);
   background: var(--panel);
   margin-bottom: 10px;
   overflow: hidden;
@@ -625,7 +592,7 @@ th.num {
   gap: 10px 22px;
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--sw-radius);
   background: var(--panel);
 }
 
