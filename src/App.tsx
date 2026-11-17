@@ -127,6 +127,11 @@ export function App() {
             <button className="sw-primary" onClick={() => setView('report')}>
               Report
             </button>
+            {/* Opens the shared About dialog — see public/about.js, which delegates
+                this attribute from the document, so nothing needs importing here. */}
+            <button type="button" data-stoatworks-about>
+              About
+            </button>
           </div>
         </div>
       </header>
